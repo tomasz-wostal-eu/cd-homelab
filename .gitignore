@@ -1,0 +1,38 @@
+# Documentation (generated/local)
+docs/
+
+# Environment and secrets
+.env
+.env.*
+*.env
+
+# Data directories
+data/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Kubernetes secrets (local)
+*-secret.yaml
+*-secrets.yaml
+secrets/
+
+# Kubeconfig files (may contain credentials)
+kubeconfig*.yaml
+*.kubeconfig
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+CLAUDE.md
+GEMINI.md
