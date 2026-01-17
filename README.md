@@ -184,8 +184,9 @@ Or install components individually:
 ```bash
 # ArgoCD
 make argocd-install
-make argocd-password      # Get admin password
-make argocd-port-forward  # UI at http://localhost:8080
+make argocd-password         # Get initial admin password
+make argocd-change-password  # Set password from .env (ARGOCD_ADMIN_PASSWORD)
+make argocd-port-forward     # UI at http://localhost:8080
 
 # Sealed Secrets
 make sealed-secrets-install

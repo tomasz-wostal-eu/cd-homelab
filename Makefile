@@ -11,7 +11,7 @@ export
         kubeconfig nfs-install nfs-storageclass \
         nodes pods services pvc logs shell \
         docker-context git-init \
-        argocd-install argocd-uninstall argocd-password argocd-port-forward argocd-status \
+        argocd-install argocd-uninstall argocd-password argocd-port-forward argocd-status argocd-change-password \
         sealed-secrets-install sealed-secrets-uninstall sealed-secrets-status sealed-secrets-cert \
         external-secrets-install external-secrets-uninstall external-secrets-status \
         azure-credentials-create azure-credentials-apply azure-store-apply azure-test \
@@ -284,6 +284,28 @@ argocd-status: ## Show ArgoCD status
 	@echo ""
 	@echo "$(GREEN)ArgoCD Services:$(NC)"
 	@kubectl get svc -n $(ARGOCD_NAMESPACE)
+
+argocd-change-password: ## Change ArgoCD admin password (from ARGOCD_ADMIN_PASSWORD in .env)
+	@echo "$(GREEN)Changing ArgoCD admin password...$(NC)"
+	@if [ -z "$(ARGOCD_ADMIN_PASSWORD)" ]; then \
+		echo "$(RED)ERROR: ARGOCD_ADMIN_PASSWORD not set in .env$(NC)"; \
+		exit 1; \
+	fi
+	@if ! command -v argocd &> /dev/null; then \
+		echo "$(RED)ERROR: argocd CLI not installed. Install with: brew install argocd$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(YELLOW)Starting port-forward in background...$(NC)"
+	@kubectl port-forward svc/argocd-server -n $(ARGOCD_NAMESPACE) $(ARGOCD_PORT):443 &>/dev/null & \
+		PF_PID=$$!; \
+		sleep 2; \
+		CURRENT_PASSWORD=$$(kubectl get secret argocd-initial-admin-secret -n $(ARGOCD_NAMESPACE) -o jsonpath="{.data.password}" | base64 -d); \
+		echo "$(YELLOW)Logging in with current password...$(NC)"; \
+		argocd login localhost:$(ARGOCD_PORT) --username admin --password "$$CURRENT_PASSWORD" --insecure; \
+		echo "$(YELLOW)Setting new password from .env...$(NC)"; \
+		argocd account update-password --current-password "$$CURRENT_PASSWORD" --new-password "$(ARGOCD_ADMIN_PASSWORD)"; \
+		kill $$PF_PID 2>/dev/null || true; \
+		echo "$(GREEN)Password changed successfully!$(NC)"
 
 ##@ Sealed Secrets
 
