@@ -1,0 +1,23 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-core
+  namespace: argocd
+spec:
+  description: Core platform infrastructure (Secrets management, GitOps tooling)
+
+  sourceRepos:
+    - '*'
+
+  destinations:
+    - namespace: '*'
+      server: '*'
+
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'

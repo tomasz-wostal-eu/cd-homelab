@@ -1,0 +1,13 @@
+# sealed-secrets values for local/homelab environment
+
+# Resource limits for homelab
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+# Key rotation settings
+keyrenewperiod: "720h"  # 30 days

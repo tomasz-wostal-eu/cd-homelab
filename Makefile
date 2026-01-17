@@ -1,14 +1,23 @@
 # cd-homelab Makefile
-# Kubernetes homelab on macOS with Podman + k3d + NFS
+# Kubernetes homelab on macOS with Podman + k3d + NFS + GitOps
+
+# Load environment variables from .env file
+-include .env
+export
 
 .PHONY: help init setup clean start stop restart status \
         podman-init podman-start podman-stop podman-status podman-rm \
         cluster-create cluster-delete cluster-start cluster-stop cluster-status \
         kubeconfig nfs-install nfs-storageclass \
         nodes pods services pvc logs shell \
-        docker-context git-init
+        docker-context git-init \
+        argocd-install argocd-uninstall argocd-password argocd-port-forward argocd-status \
+        sealed-secrets-install sealed-secrets-uninstall sealed-secrets-status sealed-secrets-cert \
+        external-secrets-install external-secrets-uninstall external-secrets-status \
+        azure-credentials-create azure-credentials-apply azure-store-apply azure-test \
+        bootstrap-secrets bootstrap-all bootstrap-status
 
-# Variables
+# Variables - Cluster
 CLUSTER_NAME ?= homelab
 K3D_CONFIG ?= k3d/config.yaml
 NFS_STORAGECLASS ?= extras/nfs/storageclass-nfs.yaml
@@ -17,6 +26,12 @@ PODMAN_CPUS ?= 6
 PODMAN_MEMORY ?= 12288
 PODMAN_DISK ?= 50
 NFS_VOLUME ?= /private/nfs/k8s-volumes
+
+# Variables - GitOps (can be overridden in .env)
+ARGOCD_NAMESPACE ?= argocd
+ARGOCD_PORT ?= 8080
+SEALED_SECRETS_NAMESPACE ?= sealed-secrets
+EXTERNAL_SECRETS_NAMESPACE ?= external-secrets
 
 # Colors
 GREEN  := \033[0;32m
@@ -229,3 +244,164 @@ info: ## Show environment info
 
 tailscale-ip: ## Show Tailscale IP
 	@tailscale ip -4 2>/dev/null || echo "Tailscale not running"
+
+##@ ArgoCD
+
+argocd-install: ## Install ArgoCD via Helm
+	@echo "$(GREEN)Installing ArgoCD...$(NC)"
+	helm repo add argo https://argoproj.github.io/argo-helm || true
+	helm repo update
+	kubectl create namespace $(ARGOCD_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	helm upgrade --install argocd argo/argo-cd \
+		--namespace $(ARGOCD_NAMESPACE) \
+		--set "server.service.type=ClusterIP" \
+		--set "server.insecure=true" \
+		--set "applicationSet.enabled=true" \
+		--timeout 10m \
+		--wait
+	@echo "$(GREEN)ArgoCD installed. Run 'make argocd-password' to get admin password.$(NC)"
+
+argocd-uninstall: ## Uninstall ArgoCD
+	@echo "$(RED)Uninstalling ArgoCD...$(NC)"
+	helm uninstall argocd --namespace $(ARGOCD_NAMESPACE) || true
+	kubectl delete namespace $(ARGOCD_NAMESPACE) || true
+
+argocd-password: ## Get ArgoCD admin password
+	@echo "$(GREEN)ArgoCD admin password:$(NC)"
+	@kubectl get secret argocd-initial-admin-secret \
+		--namespace $(ARGOCD_NAMESPACE) \
+		-o jsonpath="{.data.password}" | base64 -d && echo
+
+argocd-port-forward: ## Port-forward ArgoCD UI to localhost:8080
+	@echo "$(GREEN)ArgoCD UI: http://localhost:$(ARGOCD_PORT)$(NC)"
+	@echo "$(YELLOW)Username: admin$(NC)"
+	@echo "$(YELLOW)Run 'make argocd-password' for password$(NC)"
+	kubectl port-forward svc/argocd-server -n $(ARGOCD_NAMESPACE) $(ARGOCD_PORT):443
+
+argocd-status: ## Show ArgoCD status
+	@echo "$(GREEN)ArgoCD Pods:$(NC)"
+	@kubectl get pods -n $(ARGOCD_NAMESPACE)
+	@echo ""
+	@echo "$(GREEN)ArgoCD Services:$(NC)"
+	@kubectl get svc -n $(ARGOCD_NAMESPACE)
+
+##@ Sealed Secrets
+
+sealed-secrets-install: ## Install Sealed Secrets via Helm
+	@echo "$(GREEN)Installing Sealed Secrets...$(NC)"
+	helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets || true
+	helm repo update
+	kubectl create namespace $(SEALED_SECRETS_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets \
+		--namespace $(SEALED_SECRETS_NAMESPACE) \
+		--set fullnameOverride=sealed-secrets
+	@echo "$(GREEN)Sealed Secrets installed.$(NC)"
+
+sealed-secrets-uninstall: ## Uninstall Sealed Secrets
+	@echo "$(RED)Uninstalling Sealed Secrets...$(NC)"
+	helm uninstall sealed-secrets --namespace $(SEALED_SECRETS_NAMESPACE) || true
+	kubectl delete namespace $(SEALED_SECRETS_NAMESPACE) || true
+
+sealed-secrets-status: ## Show Sealed Secrets status
+	@kubectl get pods -n $(SEALED_SECRETS_NAMESPACE)
+
+sealed-secrets-cert: ## Get Sealed Secrets public certificate
+	@echo "$(GREEN)Fetching Sealed Secrets certificate...$(NC)"
+	@kubeseal --fetch-cert \
+		--controller-name=sealed-secrets \
+		--controller-namespace=$(SEALED_SECRETS_NAMESPACE)
+
+##@ External Secrets
+
+external-secrets-install: ## Install External Secrets Operator via Helm
+	@echo "$(GREEN)Installing External Secrets Operator...$(NC)"
+	helm repo add external-secrets https://charts.external-secrets.io || true
+	helm repo update
+	kubectl create namespace $(EXTERNAL_SECRETS_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	helm upgrade --install external-secrets external-secrets/external-secrets \
+		--namespace $(EXTERNAL_SECRETS_NAMESPACE) \
+		--set installCRDs=true \
+		--set fullnameOverride=external-secrets
+	@echo "$(GREEN)External Secrets Operator installed.$(NC)"
+
+external-secrets-uninstall: ## Uninstall External Secrets Operator
+	@echo "$(RED)Uninstalling External Secrets Operator...$(NC)"
+	helm uninstall external-secrets --namespace $(EXTERNAL_SECRETS_NAMESPACE) || true
+	kubectl delete namespace $(EXTERNAL_SECRETS_NAMESPACE) || true
+
+external-secrets-status: ## Show External Secrets Operator status
+	@kubectl get pods -n $(EXTERNAL_SECRETS_NAMESPACE)
+
+##@ Azure Key Vault
+
+azure-credentials-create: ## Create sealed secret for Azure Key Vault credentials
+	@echo "$(GREEN)Creating Azure Key Vault credentials secret...$(NC)"
+	@if [ -z "$(AZURE_CLIENT_ID)" ] || [ -z "$(AZURE_CLIENT_SECRET)" ]; then \
+		echo "$(RED)ERROR: AZURE_CLIENT_ID and AZURE_CLIENT_SECRET required in .env$(NC)"; \
+		exit 1; \
+	fi
+	@echo "Creating temporary secret..."
+	@kubectl create secret generic azure-keyvault-credentials \
+		--from-literal=client-id="$(AZURE_CLIENT_ID)" \
+		--from-literal=client-secret="$(AZURE_CLIENT_SECRET)" \
+		--namespace="$(EXTERNAL_SECRETS_NAMESPACE)" \
+		--dry-run=client -o yaml > /tmp/azure-credentials.yaml
+	@echo "Sealing secret..."
+	@mkdir -p extras/local/external-secrets
+	@kubeseal \
+		--controller-name=sealed-secrets \
+		--controller-namespace=$(SEALED_SECRETS_NAMESPACE) \
+		--format=yaml \
+		--namespace=$(EXTERNAL_SECRETS_NAMESPACE) \
+		< /tmp/azure-credentials.yaml \
+		> extras/local/external-secrets/azure-keyvault-credentials.yaml
+	@rm -f /tmp/azure-credentials.yaml
+	@echo "$(GREEN)Sealed secret created: extras/local/external-secrets/azure-keyvault-credentials.yaml$(NC)"
+
+azure-credentials-apply: ## Apply Azure Key Vault credentials sealed secret
+	@if [ ! -f "extras/local/external-secrets/azure-keyvault-credentials.yaml" ]; then \
+		echo "$(RED)ERROR: Run 'make azure-credentials-create' first$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Applying Azure credentials sealed secret...$(NC)"
+	kubectl apply -f extras/local/external-secrets/azure-keyvault-credentials.yaml
+	@sleep 3
+	@echo "$(GREEN)Verifying secret was created:$(NC)"
+	@kubectl get secret azure-keyvault-credentials -n $(EXTERNAL_SECRETS_NAMESPACE)
+
+azure-store-apply: ## Apply Azure Key Vault ClusterSecretStore
+	@if [ ! -f "extras/local/external-secrets/azure-keyvault-store.yaml" ]; then \
+		echo "$(RED)ERROR: extras/local/external-secrets/azure-keyvault-store.yaml not found$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Applying Azure Key Vault ClusterSecretStore...$(NC)"
+	kubectl apply -f extras/local/external-secrets/azure-keyvault-store.yaml
+	@echo "$(GREEN)Verifying ClusterSecretStore:$(NC)"
+	@kubectl get clustersecretstore azure-keyvault-store
+
+azure-test: ## Test Azure Key Vault connection
+	@echo "$(GREEN)Testing Azure Key Vault connection...$(NC)"
+	@echo ""
+	@echo "ClusterSecretStore status:"
+	@kubectl get clustersecretstore azure-keyvault-store -o jsonpath='{.status.conditions[*].message}' 2>/dev/null && echo "" || echo "Not found"
+	@echo ""
+	@echo "External Secrets Operator logs (last 10 lines):"
+	@kubectl logs -n $(EXTERNAL_SECRETS_NAMESPACE) -l app.kubernetes.io/name=external-secrets --tail=10 2>/dev/null || echo "No logs"
+
+##@ GitOps Bootstrap
+
+bootstrap-secrets: sealed-secrets-install external-secrets-install ## Install both Sealed Secrets and External Secrets
+	@echo "$(GREEN)Secrets management stack installed.$(NC)"
+	@echo "$(YELLOW)Next: Create Azure credentials with 'make azure-credentials-create'$(NC)"
+
+bootstrap-all: argocd-install bootstrap-secrets ## Full bootstrap: ArgoCD + Secrets management
+	@echo "$(GREEN)Bootstrap complete!$(NC)"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. make argocd-port-forward  # Access ArgoCD UI"
+	@echo "  2. make argocd-password      # Get admin password"
+	@echo "  3. make azure-credentials-create  # Create Azure KV credentials"
+	@echo "  4. make azure-credentials-apply   # Apply credentials"
+	@echo "  5. make azure-store-apply         # Apply ClusterSecretStore"
+
+bootstrap-status: argocd-status sealed-secrets-status external-secrets-status ## Show status of all bootstrap components

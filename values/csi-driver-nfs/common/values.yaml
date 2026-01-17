@@ -1,0 +1,12 @@
+# csi-driver-nfs Helm values
+# https://github.com/kubernetes-csi/csi-driver-nfs/tree/master/charts
+
+controller:
+  replicas: 1
+  runOnControlPlane: false
+
+node:
+  livenessProbe:
+    healthPort: 29653
+
+# StorageClasses are configured per environment in region/env/values.yaml

@@ -1,0 +1,25 @@
+# sealed-secrets Helm values
+# https://github.com/bitnami-labs/sealed-secrets
+
+fullnameOverride: sealed-secrets
+
+# Controller configuration
+controller:
+  # Create cluster role binding for controller
+  create: true
+
+# Metrics for monitoring
+metrics:
+  serviceMonitor:
+    enabled: false
+  dashboards:
+    create: false
+
+# Security context
+podSecurityContext:
+  fsGroup: 65534
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1001
