@@ -1,5 +1,5 @@
 # cd-homelab Makefile
-# Kubernetes homelab on macOS with Podman + k3d + NFS + GitOps
+# Kubernetes homelab on macOS with Podman/Docker + k3d + NFS + GitOps
 
 # Load environment variables from .env file
 -include .env
@@ -7,12 +7,14 @@ export
 
 .PHONY: help init setup clean start stop restart status \
         podman-init podman-start podman-stop podman-status podman-rm \
-        cluster-create cluster-delete cluster-start cluster-stop cluster-status \
+        docker-start docker-stop docker-status \
+        cluster-create cluster-delete cluster-start cluster-stop cluster-status cluster-restart \
         kubeconfig nfs-install nfs-storageclass \
         nodes pods services pvc logs shell \
         docker-context git-init \
         argocd-install argocd-uninstall argocd-password argocd-port-forward argocd-status argocd-change-password \
         sealed-secrets-install sealed-secrets-uninstall sealed-secrets-status sealed-secrets-cert \
+        sealed-secrets-backup sealed-secrets-restore \
         external-secrets-install external-secrets-uninstall external-secrets-status \
         azure-credentials-create azure-credentials-apply azure-store-apply azure-test \
         bootstrap-secrets bootstrap-all bootstrap-status
@@ -22,10 +24,15 @@ CLUSTER_NAME ?= homelab
 K3D_CONFIG ?= k3d/config.yaml
 NFS_STORAGECLASS ?= extras/nfs/storageclass-nfs.yaml
 KUBECONFIG_PATH ?= ~/.config/k3d/kubeconfig-$(CLUSTER_NAME).yaml
+NFS_VOLUME ?= /private/nfs/k8s-volumes
+
+# Variables - Podman
 PODMAN_CPUS ?= 6
 PODMAN_MEMORY ?= 12288
 PODMAN_DISK ?= 50
-NFS_VOLUME ?= /private/nfs/k8s-volumes
+
+# Runtime detection: docker or podman (can override with RUNTIME=podman or RUNTIME=docker)
+RUNTIME ?= $(shell if docker info 2>/dev/null | grep -q "Operating System: Docker Desktop"; then echo "docker"; elif podman machine list 2>/dev/null | grep -q "Currently running"; then echo "podman"; else echo "none"; fi)
 
 # Variables - GitOps (can be overridden in .env)
 ARGOCD_NAMESPACE ?= argocd
@@ -49,14 +56,23 @@ help: ## Show this help
 
 ##@ Quick Start
 
-init: podman-init docker-context ## Initialize Podman machine (first time setup)
+init-podman: podman-init docker-context ## Initialize Podman machine (first time setup)
 	@echo "$(GREEN)Podman initialized. Run 'make setup' to create the cluster.$(NC)"
 
-setup: podman-start cluster-create kubeconfig nfs-install nfs-storageclass ## Full setup: start Podman, create cluster, install NFS
+init-docker: ## Initialize Docker Desktop (just verify it's running)
+	@echo "$(GREEN)Checking Docker Desktop...$(NC)"
+	@if docker info 2>/dev/null | grep -q "Docker Desktop"; then \
+		echo "$(GREEN)Docker Desktop is running.$(NC)"; \
+	else \
+		echo "$(RED)Docker Desktop not running. Please start it from Applications.$(NC)"; \
+		exit 1; \
+	fi
+
+setup: runtime-start cluster-create kubeconfig ## Full setup: start runtime, create cluster
 	@echo "$(GREEN)Setup complete! Run 'make status' to verify.$(NC)"
 
-clean: cluster-delete ## Delete cluster (keeps Podman machine)
-	@echo "$(YELLOW)Cluster deleted. Podman machine preserved.$(NC)"
+clean: cluster-delete ## Delete cluster (keeps runtime)
+	@echo "$(YELLOW)Cluster deleted. Runtime preserved.$(NC)"
 
 clean-all: cluster-delete podman-rm ## Delete everything (cluster + Podman machine)
 	@echo "$(RED)All resources deleted.$(NC)"
@@ -90,6 +106,61 @@ podman-rm: podman-stop ## Remove Podman machine
 	@echo "$(RED)Removing Podman machine...$(NC)"
 	podman machine rm -f || true
 
+##@ Docker Desktop
+
+docker-start: ## Ensure Docker Desktop is running
+	@echo "$(GREEN)Checking Docker Desktop...$(NC)"
+	@if docker info >/dev/null 2>&1; then \
+		echo "$(GREEN)Docker Desktop is running.$(NC)"; \
+	else \
+		echo "$(YELLOW)Starting Docker Desktop...$(NC)"; \
+		open -a Docker; \
+		echo "$(YELLOW)Waiting for Docker to start (up to 60s)...$(NC)"; \
+		for i in $$(seq 1 60); do \
+			if docker info >/dev/null 2>&1; then \
+				echo "$(GREEN)Docker Desktop started.$(NC)"; \
+				break; \
+			fi; \
+			sleep 1; \
+		done; \
+	fi
+
+docker-stop: ## Stop Docker Desktop (optional - runs in background)
+	@echo "$(YELLOW)Note: Docker Desktop runs as a background app. Quit from menu bar if needed.$(NC)"
+
+docker-status: ## Show Docker Desktop status
+	@docker info 2>/dev/null | grep -E "Operating System|Server Version|CPUs|Total Memory" || echo "Docker not running"
+
+##@ Runtime (auto-detect Docker or Podman)
+
+runtime-start: ## Start detected runtime (Docker or Podman)
+	@echo "$(GREEN)Detected runtime: $(RUNTIME)$(NC)"
+	@if [ "$(RUNTIME)" = "docker" ]; then \
+		$(MAKE) docker-start; \
+	elif [ "$(RUNTIME)" = "podman" ]; then \
+		$(MAKE) podman-start; \
+	else \
+		echo "$(RED)No runtime detected. Install Docker Desktop or Podman.$(NC)"; \
+		exit 1; \
+	fi
+
+runtime-stop: ## Stop detected runtime
+	@if [ "$(RUNTIME)" = "docker" ]; then \
+		$(MAKE) docker-stop; \
+	elif [ "$(RUNTIME)" = "podman" ]; then \
+		$(MAKE) podman-stop; \
+	fi
+
+runtime-status: ## Show runtime status
+	@echo "$(GREEN)Runtime: $(RUNTIME)$(NC)"
+	@if [ "$(RUNTIME)" = "docker" ]; then \
+		$(MAKE) docker-status; \
+	elif [ "$(RUNTIME)" = "podman" ]; then \
+		$(MAKE) podman-status; \
+	else \
+		echo "$(RED)No runtime detected.$(NC)"; \
+	fi
+
 ##@ k3d Cluster
 
 cluster-create: ## Create k3d cluster
@@ -102,7 +173,15 @@ cluster-delete: ## Delete k3d cluster
 
 cluster-start: ## Start k3d cluster
 	@echo "$(GREEN)Starting k3d cluster '$(CLUSTER_NAME)'...$(NC)"
-	k3d cluster start $(CLUSTER_NAME)
+	@k3d cluster start $(CLUSTER_NAME) || true
+	@if [ "$(RUNTIME)" = "podman" ]; then \
+		echo "$(GREEN)Ensuring serverlb is running (Podman workaround)...$(NC)"; \
+		podman start k3d-$(CLUSTER_NAME)-serverlb 2>/dev/null || true; \
+		sleep 5; \
+	fi
+	@echo "$(GREEN)Waiting for nodes to be ready...$(NC)"
+	@kubectl wait --for=condition=Ready nodes --all --timeout=60s 2>/dev/null || \
+		(echo "$(YELLOW)Some nodes not ready. Run 'make cluster-restart' if using Podman.$(NC)" && exit 1)
 
 cluster-stop: ## Stop k3d cluster
 	@echo "$(YELLOW)Stopping k3d cluster '$(CLUSTER_NAME)'...$(NC)"
@@ -111,18 +190,34 @@ cluster-stop: ## Stop k3d cluster
 cluster-status: ## Show k3d cluster status
 	k3d cluster list
 
+cluster-restart: ## Full cluster recreate (Podman workaround for restart issues)
+	@echo "$(YELLOW)Recreating cluster (preserves GitOps state via ArgoCD)...$(NC)"
+	@if kubectl get secret -n $(SEALED_SECRETS_NAMESPACE) -l sealedsecrets.bitnami.com/sealed-secrets-key -o name 2>/dev/null | grep -q secret; then \
+		echo "$(GREEN)Backing up Sealed Secrets keys...$(NC)"; \
+		mkdir -p .secrets; \
+		kubectl get secret -n $(SEALED_SECRETS_NAMESPACE) -l sealedsecrets.bitnami.com/sealed-secrets-key -o yaml > .secrets/sealed-secrets-keys.yaml; \
+	fi
+	k3d cluster delete $(CLUSTER_NAME) || true
+	k3d cluster create --config $(K3D_CONFIG)
+	@if [ -f ".secrets/sealed-secrets-keys.yaml" ]; then \
+		echo "$(GREEN)Restoring Sealed Secrets keys...$(NC)"; \
+		kubectl create namespace $(SEALED_SECRETS_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl apply -f .secrets/sealed-secrets-keys.yaml; \
+	fi
+	@echo "$(GREEN)Cluster recreated. ArgoCD will resync automatically.$(NC)"
+
 ##@ Lifecycle
 
-start: podman-start cluster-start ## Start everything (Podman + cluster)
-	@echo "$(GREEN)Homelab started.$(NC)"
+start: runtime-start cluster-start ## Start everything (runtime + cluster)
+	@echo "$(GREEN)Homelab started. Runtime: $(RUNTIME)$(NC)"
 
-stop: cluster-stop podman-stop ## Stop everything (cluster + Podman)
+stop: cluster-stop runtime-stop ## Stop everything (cluster + runtime)
 	@echo "$(YELLOW)Homelab stopped.$(NC)"
 
 restart: stop start ## Restart everything
 	@echo "$(GREEN)Homelab restarted.$(NC)"
 
-status: podman-status cluster-status nodes ## Show full status
+status: runtime-status cluster-status nodes ## Show full status
 	@echo ""
 	@echo "$(GREEN)Kubeconfig: $(KUBECONFIG_PATH)$(NC)"
 
@@ -332,6 +427,23 @@ sealed-secrets-cert: ## Get Sealed Secrets public certificate
 	@kubeseal --fetch-cert \
 		--controller-name=sealed-secrets \
 		--controller-namespace=$(SEALED_SECRETS_NAMESPACE)
+
+sealed-secrets-backup: ## Backup Sealed Secrets keys (run before cluster delete!)
+	@echo "$(GREEN)Backing up Sealed Secrets keys...$(NC)"
+	@mkdir -p .secrets
+	@kubectl get secret -n $(SEALED_SECRETS_NAMESPACE) -l sealedsecrets.bitnami.com/sealed-secrets-key -o yaml > .secrets/sealed-secrets-keys.yaml
+	@echo "$(GREEN)Keys backed up to .secrets/sealed-secrets-keys.yaml$(NC)"
+	@echo "$(RED)WARNING: This file contains private keys! Already in .gitignore.$(NC)"
+
+sealed-secrets-restore: ## Restore Sealed Secrets keys (run before sealed-secrets-install)
+	@if [ -f ".secrets/sealed-secrets-keys.yaml" ]; then \
+		echo "$(GREEN)Restoring Sealed Secrets keys...$(NC)"; \
+		kubectl create namespace $(SEALED_SECRETS_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl apply -f .secrets/sealed-secrets-keys.yaml; \
+		echo "$(GREEN)Keys restored. Now run 'make sealed-secrets-install'$(NC)"; \
+	else \
+		echo "$(YELLOW)No backup found at .secrets/sealed-secrets-keys.yaml$(NC)"; \
+	fi
 
 ##@ External Secrets
 

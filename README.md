@@ -1,12 +1,14 @@
 # cd-homelab
 
-Local Kubernetes cluster on macOS with Podman + k3d + GitOps stack (ArgoCD, Sealed Secrets, External Secrets with Azure Key Vault).
+Local Kubernetes cluster on macOS with Podman or Docker Desktop + k3d + GitOps stack (ArgoCD, Sealed Secrets, External Secrets with Azure Key Vault).
+
+> **Update**: Based on community feedback, the project now supports both **Podman** and **Docker Desktop** as container runtimes. The Makefile auto-detects which runtime is available.
 
 ## Architecture
 
 ```
 macOS
-└── Podman (rootful mode)
+└── Podman (rootful) or Docker Desktop
     └── k3d cluster "homelab"
         ├── 1 server + 3 agents
         ├── kubeAPI on Tailscale IP (remote access)
@@ -24,7 +26,9 @@ macOS
 
 - macOS (Apple Silicon / Intel)
 - Homebrew
-- Podman (`brew install podman`)
+- **Container runtime** (choose one):
+  - Podman (`brew install podman`) - open source, lightweight
+  - Docker Desktop (`brew install --cask docker`) - familiar, stable
 - k3d (`brew install k3d`)
 - helm (`brew install helm`)
 - kubectl (`brew install kubectl`)
@@ -36,7 +40,16 @@ macOS
 
 ## Setup
 
-### 1. Podman Machine
+### 1. Container Runtime
+
+**Option A: Docker Desktop (recommended for simplicity)**
+
+```bash
+brew install --cask docker
+# Start Docker Desktop from Applications
+```
+
+**Option B: Podman**
 
 ```bash
 # Initialize with NFS mount (optional)
@@ -275,11 +288,20 @@ kubectl get nodes
 
 ### After macOS Restart
 
-Podman and k3d don't auto-start after reboot. Run:
+The container runtime and k3d don't auto-start after reboot. Run:
 
 ```bash
-make start
-# Or manually:
+make start   # Auto-detects Docker or Podman, starts cluster
+```
+
+Or manually:
+
+```bash
+# Docker Desktop
+open -a Docker   # or start from Applications
+k3d cluster start homelab
+
+# Podman
 podman machine start
 k3d cluster start homelab
 ```
@@ -287,22 +309,23 @@ k3d cluster start homelab
 ### Start/Stop
 
 ```bash
-# Stop cluster (preserves data)
-k3d cluster stop homelab
-
-# Start cluster
-k3d cluster start homelab
-
-# Stop Podman machine
-podman machine stop
-
-# Start Podman machine
-podman machine start
-
-# Or use Makefile
-make start   # Start Podman + cluster
-make stop    # Stop cluster + Podman
+# Using Makefile (recommended - auto-detects runtime)
+make start   # Start runtime + cluster
+make stop    # Stop cluster + runtime
 make status  # Show status
+
+# Manual commands
+k3d cluster stop homelab   # Stop cluster (preserves data)
+k3d cluster start homelab  # Start cluster
+```
+
+### Runtime Selection
+
+The Makefile auto-detects which runtime is available. To force a specific runtime:
+
+```bash
+RUNTIME=docker make start   # Force Docker Desktop
+RUNTIME=podman make start   # Force Podman
 ```
 
 ### Delete
@@ -380,7 +403,8 @@ kubectl -n kube-system logs -l app.kubernetes.io/instance=csi-driver-nfs
 │           └── repo-cd-homelab.yaml   # ExternalSecret for Git repo SSH key
 ├── docs/
 │   ├── 01-homelab.md              # Blog post: Kubernetes setup
-│   └── 02-gitops-secrets.md       # Blog post: GitOps & Secrets
+│   ├── 02-gitops-secrets.md       # Blog post: GitOps & Secrets
+│   └── 03-runtime-choice.md       # Blog post: Podman vs Docker Desktop
 ├── .env                           # Environment variables (not committed)
 ├── .gitignore                     # Git ignore rules
 ├── CLAUDE.md                      # Instructions for Claude Code
