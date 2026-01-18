@@ -8,11 +8,13 @@ export
 .PHONY: help init setup clean start stop restart status \
         podman-init podman-start podman-stop podman-status podman-rm \
         docker-start docker-stop docker-status \
+        runtime-start runtime-stop runtime-status \
         cluster-create cluster-delete cluster-start cluster-stop cluster-status cluster-restart \
         kubeconfig nfs-install nfs-storageclass \
         nodes pods services pvc logs shell \
         docker-context git-init \
-        argocd-install argocd-uninstall argocd-password argocd-port-forward argocd-status argocd-change-password \
+        argocd-install argocd-uninstall argocd-password argocd-port-forward argocd-status \
+        argocd-repo-apply argocd-repo-status argocd-change-password \
         sealed-secrets-install sealed-secrets-uninstall sealed-secrets-status sealed-secrets-cert \
         sealed-secrets-backup sealed-secrets-restore \
         external-secrets-install external-secrets-uninstall external-secrets-status \
@@ -380,6 +382,26 @@ argocd-status: ## Show ArgoCD status
 	@echo "$(GREEN)ArgoCD Services:$(NC)"
 	@kubectl get svc -n $(ARGOCD_NAMESPACE)
 
+argocd-repo-apply: ## Apply ArgoCD repository configuration (requires External Secrets)
+	@echo "$(GREEN)Applying ArgoCD repository configuration...$(NC)"
+	@if kubectl get clustersecretstore azure-keyvault-store >/dev/null 2>&1; then \
+		kubectl apply -f extras/local/argocd/repo-cd-homelab.yaml; \
+		echo "$(GREEN)Repository ExternalSecret applied. Waiting for sync...$(NC)"; \
+		sleep 5; \
+		kubectl get externalsecret -n $(ARGOCD_NAMESPACE); \
+	else \
+		echo "$(RED)ERROR: ClusterSecretStore 'azure-keyvault-store' not found.$(NC)"; \
+		echo "$(YELLOW)Run 'make azure-store-apply' first.$(NC)"; \
+		exit 1; \
+	fi
+
+argocd-repo-status: ## Show ArgoCD repository status
+	@echo "$(GREEN)ArgoCD Repositories:$(NC)"
+	@kubectl get secret -n $(ARGOCD_NAMESPACE) -l argocd.argoproj.io/secret-type=repository
+	@echo ""
+	@echo "$(GREEN)ExternalSecrets:$(NC)"
+	@kubectl get externalsecret -n $(ARGOCD_NAMESPACE) 2>/dev/null || echo "No ExternalSecrets"
+
 argocd-change-password: ## Change ArgoCD admin password (from ARGOCD_ADMIN_PASSWORD in .env)
 	@echo "$(GREEN)Changing ArgoCD admin password...$(NC)"
 	@if [ -z "$(ARGOCD_ADMIN_PASSWORD)" ]; then \
@@ -537,5 +559,6 @@ bootstrap-all: argocd-install bootstrap-secrets ## Full bootstrap: ArgoCD + Secr
 	@echo "  3. make azure-credentials-create  # Create Azure KV credentials"
 	@echo "  4. make azure-credentials-apply   # Apply credentials"
 	@echo "  5. make azure-store-apply         # Apply ClusterSecretStore"
+	@echo "  6. make argocd-repo-apply         # Configure Git repository"
 
-bootstrap-status: argocd-status sealed-secrets-status external-secrets-status ## Show status of all bootstrap components
+bootstrap-status: argocd-status sealed-secrets-status external-secrets-status argocd-repo-status ## Show status of all bootstrap components

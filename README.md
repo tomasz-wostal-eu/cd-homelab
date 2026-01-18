@@ -216,7 +216,11 @@ make azure-test                # Verify connection
 
 ### 9. ArgoCD Repository (SSH via Azure Key Vault)
 
-Setup Git repository access for ArgoCD using SSH key stored in Azure Key Vault:
+Setup Git repository access for ArgoCD using SSH key stored in Azure Key Vault.
+
+**Prerequisites:** Complete steps 1-8 first (Azure Key Vault must be configured).
+
+**One-time setup (SSH key creation):**
 
 ```bash
 # 1. Generate SSH key
@@ -224,25 +228,38 @@ ssh-keygen -t ed25519 -C "argocd@cd-homelab" -f /tmp/argocd-cd-homelab -N ""
 
 # 2. Add private key to Azure Key Vault
 az keyvault secret set \
-  --vault-name "kv-dt-dev-pc-001" \
+  --vault-name "YOUR_KEYVAULT_NAME" \
   --name "argocd-cd-homelab-ssh-key" \
   --file /tmp/argocd-cd-homelab
 
 # 3. Add public key as GitHub deploy key
 gh repo deploy-key add /tmp/argocd-cd-homelab.pub \
-  --repo tomasz-wostal-eu/cd-homelab \
+  --repo YOUR_USERNAME/cd-homelab \
   --title "ArgoCD cd-homelab"
 
-# 4. Apply ExternalSecret (syncs key from Azure KV to ArgoCD)
-kubectl apply -f extras/local/argocd/repo-cd-homelab.yaml
-
-# 5. Clean up local keys
+# 4. Clean up local keys
 rm -f /tmp/argocd-cd-homelab /tmp/argocd-cd-homelab.pub
+```
 
-# 6. Verify
+**Apply repository configuration:**
+
+```bash
+# Using Makefile (recommended)
+make argocd-repo-apply
+
+# Verify
+make argocd-repo-status
+```
+
+Or manually:
+
+```bash
+kubectl apply -f extras/local/argocd/repo-cd-homelab.yaml
 kubectl get externalsecret -n argocd
 kubectl get secret -n argocd -l argocd.argoproj.io/secret-type=repository
 ```
+
+**Note:** The repository configuration uses ExternalSecret to sync the SSH key from Azure Key Vault. This means the key is never stored in Git.
 
 ## Usage
 
@@ -400,7 +417,7 @@ kubectl -n kube-system logs -l app.kubernetes.io/instance=csi-driver-nfs
 │       │   ├── azure-keyvault-credentials.yaml  # SealedSecret (generated)
 │       │   └── example-external-secret.yaml     # Example ExternalSecret
 │       └── argocd/
-│           └── repo-cd-homelab.yaml   # ExternalSecret for Git repo SSH key
+│           └── repo-cd-homelab.yaml   # ExternalSecret for Git repo SSH key (make argocd-repo-apply)
 ├── docs/
 │   ├── 01-homelab.md              # Blog post: Kubernetes setup
 │   ├── 02-gitops-secrets.md       # Blog post: GitOps & Secrets
