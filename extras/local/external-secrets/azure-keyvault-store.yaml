@@ -1,0 +1,21 @@
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: azure-keyvault-store
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  provider:
+    azurekv:
+      authType: ServicePrincipal
+      vaultUrl: https://kv-dt-dev-pc-001.vault.azure.net/
+      tenantId: 4acbfc87-edea-43c9-b12d-4add93825435
+      authSecretRef:
+        clientId:
+          name: azure-keyvault-credentials
+          namespace: external-secrets
+          key: client-id
+        clientSecret:
+          name: azure-keyvault-credentials
+          namespace: external-secrets
+          key: client-secret

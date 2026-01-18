@@ -36,3 +36,4 @@ kubeconfig*.yaml
 *.log
 CLAUDE.md
 GEMINI.md
+.secrets/

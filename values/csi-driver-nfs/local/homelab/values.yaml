@@ -1,0 +1,12 @@
+# csi-driver-nfs values for local/homelab environment
+# StorageClass configuration for Synology NAS
+
+storageClasses:
+  - name: nfs-rwx
+    parameters:
+      server: 192.168.55.115
+      share: /volume1/k8s-volumes
+    reclaimPolicy: Delete
+    volumeBindingMode: Immediate
+    mountOptions:
+      - nfsvers=4.1

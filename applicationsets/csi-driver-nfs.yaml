@@ -1,0 +1,76 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: csi-driver-nfs
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: kube-system
+            helmRevision: "v4.*.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: csi-driver-nfs-{{ .name }}
+      labels:
+        app.kubernetes.io/name: csi-driver-nfs
+        app.kubernetes.io/instance: csi-driver-nfs-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "-2"
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+    spec:
+      project: platform-storage
+      sources:
+        - repoURL: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+          chart: csi-driver-nfs
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: csi-driver-nfs
+            valueFiles:
+              - $values/values/csi-driver-nfs/common/values.yaml
+              - $values/values/csi-driver-nfs/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: v0.0.2
+          ref: values
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m
+        syncOptions:
+          - CreateNamespace=false
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true

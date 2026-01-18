@@ -1,35 +1,55 @@
 # cd-homelab
 
-Local Kubernetes cluster on macOS with Podman + k3d + NFS storage from Synology NAS.
+Local Kubernetes cluster on macOS with Podman or Docker Desktop + k3d + GitOps stack (ArgoCD, Sealed Secrets, External Secrets with Azure Key Vault).
+
+> **Update**: Based on community feedback, the project now supports both **Podman** and **Docker Desktop** as container runtimes. The Makefile auto-detects which runtime is available.
 
 ## Architecture
 
 ```
 macOS
-└── Podman (rootful mode)
+└── Podman (rootful) or Docker Desktop
     └── k3d cluster "homelab"
         ├── 1 server + 3 agents
         ├── kubeAPI on Tailscale IP (remote access)
         ├── Ingress: ports 80/443
-        └── Storage:
-            ├── local-path (RWO) - default
-            └── nfs-rwx (RWX) → Synology NAS
+        ├── Storage:
+        │   ├── local-path (RWO) - default
+        │   └── nfs-rwx (RWX) → Synology NAS
+        └── GitOps Stack:
+            ├── ArgoCD (GitOps engine)
+            ├── Sealed Secrets (encrypt secrets for Git)
+            └── External Secrets → Azure Key Vault
 ```
 
 ## Prerequisites
 
 - macOS (Apple Silicon / Intel)
 - Homebrew
-- Podman (`brew install podman`)
+- **Container runtime** (choose one):
+  - Podman (`brew install podman`) - open source, lightweight
+  - Docker Desktop (`brew install --cask docker`) - familiar, stable
 - k3d (`brew install k3d`)
 - helm (`brew install helm`)
 - kubectl (`brew install kubectl`)
+- kubeseal (`brew install kubeseal`) - for Sealed Secrets
 - Tailscale (optional, for remote access)
 - NFS share from NAS (for RWX storage)
+- Azure CLI (`brew install azure-cli`) - for Azure Key Vault
+- Azure Key Vault with Service Principal credentials
 
 ## Setup
 
-### 1. Podman Machine
+### 1. Container Runtime
+
+**Option A: Docker Desktop (recommended for simplicity)**
+
+```bash
+brew install --cask docker
+# Start Docker Desktop from Applications
+```
+
+**Option B: Podman**
 
 ```bash
 # Initialize with NFS mount (optional)
@@ -87,6 +107,28 @@ kubectl get nodes
 
 ### 6. NFS CSI Driver (for RWX storage)
 
+**Option A: GitOps with ArgoCD (recommended)**
+
+NFS CSI driver is managed via ApplicationSet. First, apply the ArgoCD project and ApplicationSet:
+
+```bash
+# Apply ArgoCD project
+kubectl apply -f bootstrap/argocd-projects/platform-storage.yaml
+
+# Apply ApplicationSet
+kubectl apply -f applicationsets/csi-driver-nfs.yaml
+```
+
+The ApplicationSet will:
+- Install csi-driver-nfs Helm chart in `kube-system` namespace
+- Create `nfs-rwx` StorageClass configured for Synology NAS
+
+Configuration is in:
+- `values/csi-driver-nfs/common/values.yaml` - common settings
+- `values/csi-driver-nfs/local/homelab/values.yaml` - StorageClass config (NAS IP, share path)
+
+**Option B: Manual Helm install**
+
 ```bash
 # Add repo
 helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
@@ -96,31 +138,128 @@ helm repo update
 helm upgrade --install csi-driver-nfs csi-driver-nfs/csi-driver-nfs \
   -n kube-system \
   --set externalSnapshotter.enabled=false
+
+# Apply StorageClass manually
+kubectl apply -f extras/nfs/storageclass-nfs.yaml
 ```
 
 ### 7. NFS StorageClass
 
-Edit `extras/nfs/storageclass-nfs.yaml` - set your NAS IP:
+StorageClass is configured in `values/csi-driver-nfs/local/homelab/values.yaml`:
 
 ```yaml
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: nfs-rwx
-provisioner: nfs.csi.k8s.io
-parameters:
-  server: 192.168.55.115      # Your NAS IP
-  share: /volume1/k8s-volumes  # NFS share path
-reclaimPolicy: Delete
-volumeBindingMode: Immediate
-mountOptions:
-  - nfsvers=4.1
+storageClasses:
+  - name: nfs-rwx
+    parameters:
+      server: 192.168.55.115      # Your NAS IP
+      share: /volume1/k8s-volumes  # NFS share path
+    reclaimPolicy: Delete
+    volumeBindingMode: Immediate
+    mountOptions:
+      - nfsvers=4.1
 ```
 
-Apply:
+Edit the file to match your NAS configuration.
+
+### 8. GitOps Bootstrap
+
+**Option A: GitOps with ArgoCD ApplicationSets (recommended)**
+
+After ArgoCD is installed, deploy the secrets management stack via ApplicationSets:
+
 ```bash
-kubectl apply -f extras/nfs/storageclass-nfs.yaml
+# Apply ArgoCD projects
+kubectl apply -f bootstrap/argocd-projects/platform-core.yaml
+kubectl apply -f bootstrap/argocd-projects/platform-storage.yaml
+
+# Apply ApplicationSets
+kubectl apply -f applicationsets/sealed-secrets.yaml
+kubectl apply -f applicationsets/external-secrets.yaml
+kubectl apply -f applicationsets/csi-driver-nfs.yaml
 ```
+
+Configuration is managed in values files:
+- `values/sealed-secrets/common/values.yaml` - common settings
+- `values/sealed-secrets/local/homelab/values.yaml` - environment-specific
+- `values/external-secrets/common/values.yaml` - common settings
+- `values/external-secrets/local/homelab/values.yaml` - environment-specific
+
+**Option B: Manual Helm install**
+
+Install the complete GitOps stack with one command:
+
+```bash
+make bootstrap-all
+```
+
+Or install components individually:
+
+```bash
+# ArgoCD
+make argocd-install
+make argocd-password         # Get initial admin password
+make argocd-change-password  # Set password from .env (ARGOCD_ADMIN_PASSWORD)
+make argocd-port-forward     # UI at http://localhost:8080
+
+# Sealed Secrets
+make sealed-secrets-install
+
+# External Secrets Operator
+make external-secrets-install
+
+# Azure Key Vault integration
+make azure-credentials-create  # Creates sealed secret
+make azure-credentials-apply   # Applies to cluster
+make azure-store-apply         # Creates ClusterSecretStore
+make azure-test                # Verify connection
+```
+
+### 9. ArgoCD Repository (SSH via Azure Key Vault)
+
+Setup Git repository access for ArgoCD using SSH key stored in Azure Key Vault.
+
+**Prerequisites:** Complete steps 1-8 first (Azure Key Vault must be configured).
+
+**One-time setup (SSH key creation):**
+
+```bash
+# 1. Generate SSH key
+ssh-keygen -t ed25519 -C "argocd@cd-homelab" -f /tmp/argocd-cd-homelab -N ""
+
+# 2. Add private key to Azure Key Vault
+az keyvault secret set \
+  --vault-name "YOUR_KEYVAULT_NAME" \
+  --name "argocd-cd-homelab-ssh-key" \
+  --file /tmp/argocd-cd-homelab
+
+# 3. Add public key as GitHub deploy key
+gh repo deploy-key add /tmp/argocd-cd-homelab.pub \
+  --repo YOUR_USERNAME/cd-homelab \
+  --title "ArgoCD cd-homelab"
+
+# 4. Clean up local keys
+rm -f /tmp/argocd-cd-homelab /tmp/argocd-cd-homelab.pub
+```
+
+**Apply repository configuration:**
+
+```bash
+# Using Makefile (recommended)
+make argocd-repo-apply
+
+# Verify
+make argocd-repo-status
+```
+
+Or manually:
+
+```bash
+kubectl apply -f extras/local/argocd/repo-cd-homelab.yaml
+kubectl get externalsecret -n argocd
+kubectl get secret -n argocd -l argocd.argoproj.io/secret-type=repository
+```
+
+**Note:** The repository configuration uses ExternalSecret to sync the SSH key from Azure Key Vault. This means the key is never stored in Git.
 
 ## Usage
 
@@ -164,20 +303,46 @@ kubectl get nodes
 
 ## Cluster Management
 
+### After macOS Restart
+
+The container runtime and k3d don't auto-start after reboot. Run:
+
+```bash
+make start   # Auto-detects Docker or Podman, starts cluster
+```
+
+Or manually:
+
+```bash
+# Docker Desktop
+open -a Docker   # or start from Applications
+k3d cluster start homelab
+
+# Podman
+podman machine start
+k3d cluster start homelab
+```
+
 ### Start/Stop
 
 ```bash
-# Stop cluster (preserves data)
-k3d cluster stop homelab
+# Using Makefile (recommended - auto-detects runtime)
+make start   # Start runtime + cluster
+make stop    # Stop cluster + runtime
+make status  # Show status
 
-# Start cluster
-k3d cluster start homelab
+# Manual commands
+k3d cluster stop homelab   # Stop cluster (preserves data)
+k3d cluster start homelab  # Start cluster
+```
 
-# Stop Podman machine
-podman machine stop
+### Runtime Selection
 
-# Start Podman machine
-podman machine start
+The Makefile auto-detects which runtime is available. To force a specific runtime:
+
+```bash
+RUNTIME=docker make start   # Force Docker Desktop
+RUNTIME=podman make start   # Force Podman
 ```
 
 ### Delete
@@ -223,15 +388,45 @@ kubectl -n kube-system logs -l app.kubernetes.io/instance=csi-driver-nfs
 
 ```
 .
+├── applicationsets/
+│   ├── csi-driver-nfs.yaml            # ApplicationSet for NFS CSI driver
+│   ├── sealed-secrets.yaml            # ApplicationSet for Sealed Secrets
+│   └── external-secrets.yaml          # ApplicationSet for External Secrets
+├── bootstrap/
+│   └── argocd-projects/
+│       ├── platform-core.yaml         # ArgoCD AppProject for core (secrets)
+│       └── platform-storage.yaml      # ArgoCD AppProject for storage
 ├── k3d/
-│   └── config.yaml              # k3d cluster configuration
+│   └── config.yaml                    # k3d cluster configuration
+├── values/
+│   ├── csi-driver-nfs/
+│   │   ├── common/values.yaml         # Common Helm values
+│   │   └── local/homelab/values.yaml  # Environment-specific (StorageClass)
+│   ├── sealed-secrets/
+│   │   ├── common/values.yaml         # Common Helm values
+│   │   └── local/homelab/values.yaml  # Environment-specific (resources)
+│   └── external-secrets/
+│       ├── common/values.yaml         # Common Helm values
+│       └── local/homelab/values.yaml  # Environment-specific (resources)
 ├── extras/
-│   └── nfs/
-│       └── storageclass-nfs.yaml  # StorageClass for Synology NAS
-├── .env                         # Environment variables (not committed)
-├── .gitignore                   # Git ignore rules
-├── CLAUDE.md                    # Instructions for Claude Code
-└── README.md                    # This file
+│   ├── nfs/
+│   │   └── storageclass-nfs.yaml      # StorageClass for Synology NAS (manual install)
+│   └── local/
+│       ├── external-secrets/
+│       │   ├── azure-keyvault-store.yaml        # ClusterSecretStore
+│       │   ├── azure-keyvault-credentials.yaml  # SealedSecret (generated)
+│       │   └── example-external-secret.yaml     # Example ExternalSecret
+│       └── argocd/
+│           └── repo-cd-homelab.yaml   # ExternalSecret for Git repo SSH key (make argocd-repo-apply)
+├── docs/
+│   ├── 01-homelab.md              # Blog post: Kubernetes setup
+│   ├── 02-gitops-secrets.md       # Blog post: GitOps & Secrets
+│   └── 03-runtime-choice.md       # Blog post: Podman vs Docker Desktop
+├── .env                           # Environment variables (not committed)
+├── .gitignore                     # Git ignore rules
+├── CLAUDE.md                      # Instructions for Claude Code
+├── Makefile                       # Automation targets
+└── README.md                      # This file
 ```
 
 ## License

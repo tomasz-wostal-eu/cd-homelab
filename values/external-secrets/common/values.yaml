@@ -1,0 +1,47 @@
+# external-secrets Helm values
+# https://external-secrets.io/
+
+installCRDs: true
+fullnameOverride: external-secrets
+
+crds:
+  createClusterExternalSecret: true
+  createClusterSecretStore: true
+  createPushSecret: true
+
+# Webhook configuration
+webhook:
+  create: true
+  certCheckInterval: 5m
+  lookaheadInterval: ""
+
+# Cert controller for webhook certificates
+certController:
+  create: true
+  requeueInterval: 5m
+
+# Metrics configuration
+metrics:
+  service:
+    enabled: true
+    port: 8080
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
+      prometheus.io/path: "/metrics"
+
+serviceMonitor:
+  enabled: false
+
+# Pod security
+podSecurityContext:
+  fsGroup: 65534
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
