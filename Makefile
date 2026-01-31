@@ -1,7 +1,13 @@
 # cd-homelab Makefile
-# Kubernetes homelab on macOS with Podman/Docker + k3d + NFS + GitOps
+# Kubernetes homelab on macOS/Linux with Podman/Docker + k3d + NFS + GitOps
+#
+# Runtime defaults:
+#   - macOS: Docker Desktop (Podman available via VM)
+#   - Linux: Podman native (Docker available if installed)
+# Override with: RUNTIME=docker or RUNTIME=podman
 
 # Load environment variables from .env file
+SHELL := /usr/bin/env bash
 -include .env
 export
 
@@ -23,18 +29,39 @@ export
 
 # Variables - Cluster
 CLUSTER_NAME ?= homelab
-K3D_CONFIG ?= k3d/config.yaml
+K3D_CONFIG ?= k3d/config-linux.yaml
 NFS_STORAGECLASS ?= extras/nfs/storageclass-nfs.yaml
 KUBECONFIG_PATH ?= ~/.config/k3d/kubeconfig-$(CLUSTER_NAME).yaml
-NFS_VOLUME ?= /private/nfs/k8s-volumes
+NFS_VOLUME ?= /mnt/k8s-volumes
 
-# Variables - Podman
+# Ensure NFS mount exists for podman
+# (Removed creation command to avoid make syntax errors)
+
+# Variables - Podman (macOS only - Linux runs native)
 PODMAN_CPUS ?= 6
 PODMAN_MEMORY ?= 12288
 PODMAN_DISK ?= 50
 
-# Runtime detection: docker or podman (can override with RUNTIME=podman or RUNTIME=docker)
-RUNTIME ?= $(shell if docker info 2>/dev/null | grep -q "Operating System: Docker Desktop"; then echo "docker"; elif podman machine list 2>/dev/null | grep -q "Currently running"; then echo "podman"; else echo "none"; fi)
+ifdef RUNTIME
+ifeq ($(RUNTIME),podman)
+  export DOCKER_HOST := unix:///run/podman/podman.sock
+endif
+endif
+
+# OS detection
+OS := $(shell uname -s)
+
+# Runtime detection (OS-aware):
+#   - macOS: prefer Docker Desktop, fallback to Podman machine
+#   - Linux: prefer Podman native, fallback to Docker
+# Can override with RUNTIME=podman or RUNTIME=docker
+ifeq ($(OS),Darwin)
+  # macOS: check Docker Desktop first, then Podman machine
+  RUNTIME ?= $(shell if docker info 2>/dev/null | grep -q "Operating System: Docker Desktop"; then echo "docker"; elif podman machine list 2>/dev/null | grep -q "Currently running"; then echo "podman"; else echo "none"; fi)
+else
+  # Linux: check Podman native first, then Docker
+  RUNTIME ?= $(shell if podman info >/dev/null 2>&1; then echo "podman"; elif docker info >/dev/null 2>&1; then echo "docker"; else echo "none"; fi)
+endif
 
 # Variables - GitOps (can be overridden in .env)
 ARGOCD_NAMESPACE ?= argocd
@@ -58,60 +85,98 @@ help: ## Show this help
 
 ##@ Quick Start
 
-init-podman: podman-init docker-context ## Initialize Podman machine (first time setup)
-	@echo "$(GREEN)Podman initialized. Run 'make setup' to create the cluster.$(NC)"
+init-podman: podman-init ## Initialize Podman (macOS: VM setup, Linux: verify native install)
+ifeq ($(OS),Darwin)
+	@$(MAKE) docker-context
+endif
+	@printf "%b\n" "$(GREEN)Podman initialized. Run 'make setup' to create the cluster.$(NC)"
 
-init-docker: ## Initialize Docker Desktop (just verify it's running)
-	@echo "$(GREEN)Checking Docker Desktop...$(NC)"
+init-docker: ## Initialize Docker (verify it's running)
+ifeq ($(OS),Darwin)
+	@printf "%b\n" "$(GREEN)Checking Docker Desktop (macOS)...$(NC)"
 	@if docker info 2>/dev/null | grep -q "Docker Desktop"; then \
 		echo "$(GREEN)Docker Desktop is running.$(NC)"; \
 	else \
 		echo "$(RED)Docker Desktop not running. Please start it from Applications.$(NC)"; \
 		exit 1; \
 	fi
+else
+	@printf "%b\n" "$(GREEN)Checking Docker daemon (Linux)...$(NC)"
+	@if docker info >/dev/null 2>&1; then \
+		echo "$(GREEN)Docker daemon is running.$(NC)"; \
+	else \
+		echo "$(RED)Docker not running. Start with: sudo systemctl start docker$(NC)"; \
+		exit 1; \
+	fi
+endif
 
 setup: runtime-start cluster-create kubeconfig ## Full setup: start runtime, create cluster
-	@echo "$(GREEN)Setup complete! Run 'make status' to verify.$(NC)"
+	@printf "%b\n" "$(GREEN)Setup complete! Run 'make status' to verify.$(NC)"
 
 clean: cluster-delete ## Delete cluster (keeps runtime)
-	@echo "$(YELLOW)Cluster deleted. Runtime preserved.$(NC)"
+	@printf "%b\n" "$(YELLOW)Cluster deleted. Runtime preserved.$(NC)"
 
-clean-all: cluster-delete podman-rm ## Delete everything (cluster + Podman machine)
-	@echo "$(RED)All resources deleted.$(NC)"
+clean-all: cluster-delete ## Delete everything (cluster + Podman machine on macOS)
+ifeq ($(OS),Darwin)
+	@$(MAKE) podman-rm
+endif
+	@printf "%b\n" "$(RED)All resources deleted.$(NC)"
 
-##@ Podman Machine
+##@ Podman (macOS: VM, Linux: native)
 
-podman-init: ## Initialize Podman machine (rootful + restart)
-	@echo "$(GREEN)Initializing Podman machine...$(NC)"
+podman-init: ## Initialize Podman machine (macOS only - Linux runs native)
+ifeq ($(OS),Darwin)
+	@printf "%b\n" "$(GREEN)Initializing Podman machine (macOS)...$(NC)"
 	podman machine init \
 		--cpus $(PODMAN_CPUS) \
 		--memory $(PODMAN_MEMORY) \
 		--disk-size $(PODMAN_DISK) \
 		--volume $(NFS_VOLUME):$(NFS_VOLUME) \
 		--rootful
-	@echo "$(GREEN)Starting Podman machine...$(NC)"
+	@printf "%b\n" "$(GREEN)Starting Podman machine...$(NC)"
 	podman machine start
-	@echo "$(GREEN)Podman machine initialized and running in rootful mode.$(NC)"
+	@printf "%b\n" "$(GREEN)Podman machine initialized and running in rootful mode.$(NC)"
+else
+	@printf "%b\n" "$(GREEN)Linux detected - Podman runs natively, no machine needed.$(NC)"
+	@printf "%b\n" "$(YELLOW)Ensure podman is installed: sudo apt install podman (Debian/Ubuntu) or sudo dnf install podman (Fedora/RHEL)$(NC)"
+endif
 
-podman-start: ## Start Podman machine
-	@echo "$(GREEN)Starting Podman machine...$(NC)"
+podman-start: ## Start Podman (macOS: start machine, Linux: no-op)
+ifeq ($(OS),Darwin)
+	@printf "%b\n" "$(GREEN)Starting Podman machine...$(NC)"
 	podman machine start || true
+else
+	@printf "%b\n" "$(GREEN)Linux: Podman runs natively, no startup needed.$(NC)"
+endif
 
-podman-stop: ## Stop Podman machine
-	@echo "$(YELLOW)Stopping Podman machine...$(NC)"
+podman-stop: ## Stop Podman (macOS: stop machine, Linux: no-op)
+ifeq ($(OS),Darwin)
+	@printf "%b\n" "$(YELLOW)Stopping Podman machine...$(NC)"
 	podman machine stop || true
+else
+	@printf "%b\n" "$(YELLOW)Linux: Podman runs natively, no stop action needed.$(NC)"
+endif
 
-podman-status: ## Show Podman machine status
+podman-status: ## Show Podman status
+ifeq ($(OS),Darwin)
 	podman machine list
+else
+	@podman info 2>/dev/null | grep -E "host|version" | head -5 || echo "Podman not running or not installed"
+endif
 
-podman-rm: podman-stop ## Remove Podman machine
-	@echo "$(RED)Removing Podman machine...$(NC)"
+podman-rm: podman-stop ## Remove Podman machine (macOS only)
+ifeq ($(OS),Darwin)
+	@printf "%b\n" "$(RED)Removing Podman machine...$(NC)"
 	podman machine rm -f || true
+else
+	@printf "%b\n" "$(YELLOW)Linux: Podman runs natively - nothing to remove.$(NC)"
+endif
 
-##@ Docker Desktop
+##@ Docker (macOS: Desktop, Linux: daemon)
 
-docker-start: ## Ensure Docker Desktop is running
-	@echo "$(GREEN)Checking Docker Desktop...$(NC)"
+docker-start: ## Ensure Docker is running
+ifeq ($(OS),Darwin)
+	@printf "%b\n" "$(GREEN)Checking Docker Desktop (macOS)...$(NC)"
 	@if docker info >/dev/null 2>&1; then \
 		echo "$(GREEN)Docker Desktop is running.$(NC)"; \
 	else \
@@ -126,23 +191,41 @@ docker-start: ## Ensure Docker Desktop is running
 			sleep 1; \
 		done; \
 	fi
+else
+	@printf "%b\n" "$(GREEN)Checking Docker daemon (Linux)...$(NC)"
+	@if docker info >/dev/null 2>&1; then \
+		echo "$(GREEN)Docker daemon is running.$(NC)"; \
+	else \
+		echo "$(YELLOW)Starting Docker daemon...$(NC)"; \
+		sudo systemctl start docker || echo "$(RED)Failed to start Docker. Try: sudo systemctl start docker$(NC)"; \
+	fi
+endif
 
-docker-stop: ## Stop Docker Desktop (optional - runs in background)
-	@echo "$(YELLOW)Note: Docker Desktop runs as a background app. Quit from menu bar if needed.$(NC)"
+docker-stop: ## Stop Docker (macOS: manual, Linux: systemctl)
+ifeq ($(OS),Darwin)
+	@printf "%b\n" "$(YELLOW)Note: Docker Desktop runs as a background app. Quit from menu bar if needed.$(NC)"
+else
+	@printf "%b\n" "$(YELLOW)Stopping Docker daemon...$(NC)"
+	sudo systemctl stop docker || true
+endif
 
-docker-status: ## Show Docker Desktop status
+docker-status: ## Show Docker status
 	@docker info 2>/dev/null | grep -E "Operating System|Server Version|CPUs|Total Memory" || echo "Docker not running"
 
-##@ Runtime (auto-detect Docker or Podman)
+##@ Runtime (auto-detect Docker or Podman based on OS)
 
 runtime-start: ## Start detected runtime (Docker or Podman)
-	@echo "$(GREEN)Detected runtime: $(RUNTIME)$(NC)"
+	@printf "%b\n" "$(GREEN)OS: $(OS) | Runtime: $(RUNTIME)$(NC)"
 	@if [ "$(RUNTIME)" = "docker" ]; then \
 		$(MAKE) docker-start; \
 	elif [ "$(RUNTIME)" = "podman" ]; then \
 		$(MAKE) podman-start; \
 	else \
-		echo "$(RED)No runtime detected. Install Docker Desktop or Podman.$(NC)"; \
+		if [ "$(OS)" = "Darwin" ]; then \
+			echo "$(RED)No runtime detected. Install Docker Desktop (recommended) or Podman.$(NC)"; \
+		else \
+			echo "$(RED)No runtime detected. Install Podman (recommended) or Docker.$(NC)"; \
+		fi; \
 		exit 1; \
 	fi
 
@@ -154,7 +237,7 @@ runtime-stop: ## Stop detected runtime
 	fi
 
 runtime-status: ## Show runtime status
-	@echo "$(GREEN)Runtime: $(RUNTIME)$(NC)"
+	@printf "%b\n" "$(GREEN)OS: $(OS) | Runtime: $(RUNTIME)$(NC)"
 	@if [ "$(RUNTIME)" = "docker" ]; then \
 		$(MAKE) docker-status; \
 	elif [ "$(RUNTIME)" = "podman" ]; then \
@@ -166,34 +249,34 @@ runtime-status: ## Show runtime status
 ##@ k3d Cluster
 
 cluster-create: ## Create k3d cluster
-	@echo "$(GREEN)Creating k3d cluster '$(CLUSTER_NAME)'...$(NC)"
+	@printf "%b\n" "$(GREEN)Creating k3d cluster '$(CLUSTER_NAME)'...$(NC)"
 	k3d cluster create --config $(K3D_CONFIG)
 
 cluster-delete: ## Delete k3d cluster
-	@echo "$(RED)Deleting k3d cluster '$(CLUSTER_NAME)'...$(NC)"
+	@printf "%b\n" "$(RED)Deleting k3d cluster '$(CLUSTER_NAME)'...$(NC)"
 	k3d cluster delete $(CLUSTER_NAME) || true
 
 cluster-start: ## Start k3d cluster
-	@echo "$(GREEN)Starting k3d cluster '$(CLUSTER_NAME)'...$(NC)"
+	@printf "%b\n" "$(GREEN)Starting k3d cluster '$(CLUSTER_NAME)'...$(NC)"
 	@k3d cluster start $(CLUSTER_NAME) || true
 	@if [ "$(RUNTIME)" = "podman" ]; then \
 		echo "$(GREEN)Ensuring serverlb is running (Podman workaround)...$(NC)"; \
 		podman start k3d-$(CLUSTER_NAME)-serverlb 2>/dev/null || true; \
 		sleep 5; \
 	fi
-	@echo "$(GREEN)Waiting for nodes to be ready...$(NC)"
+	@printf "%b\n" "$(GREEN)Waiting for nodes to be ready...$(NC)"
 	@kubectl wait --for=condition=Ready nodes --all --timeout=60s 2>/dev/null || \
 		(echo "$(YELLOW)Some nodes not ready. Run 'make cluster-restart' if using Podman.$(NC)" && exit 1)
 
 cluster-stop: ## Stop k3d cluster
-	@echo "$(YELLOW)Stopping k3d cluster '$(CLUSTER_NAME)'...$(NC)"
+	@printf "%b\n" "$(YELLOW)Stopping k3d cluster '$(CLUSTER_NAME)'...$(NC)"
 	k3d cluster stop $(CLUSTER_NAME)
 
 cluster-status: ## Show k3d cluster status
 	k3d cluster list
 
 cluster-restart: ## Full cluster recreate (Podman workaround for restart issues)
-	@echo "$(YELLOW)Recreating cluster (preserves GitOps state via ArgoCD)...$(NC)"
+	@printf "%b\n" "$(YELLOW)Recreating cluster (preserves GitOps state via ArgoCD)...$(NC)"
 	@if kubectl get secret -n $(SEALED_SECRETS_NAMESPACE) -l sealedsecrets.bitnami.com/sealed-secrets-key -o name 2>/dev/null | grep -q secret; then \
 		echo "$(GREEN)Backing up Sealed Secrets keys...$(NC)"; \
 		mkdir -p .secrets; \
@@ -206,29 +289,29 @@ cluster-restart: ## Full cluster recreate (Podman workaround for restart issues)
 		kubectl create namespace $(SEALED_SECRETS_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -; \
 		kubectl apply -f .secrets/sealed-secrets-keys.yaml; \
 	fi
-	@echo "$(GREEN)Cluster recreated. ArgoCD will resync automatically.$(NC)"
+	@printf "%b\n" "$(GREEN)Cluster recreated. ArgoCD will resync automatically.$(NC)"
 
 ##@ Lifecycle
 
 start: runtime-start cluster-start ## Start everything (runtime + cluster)
-	@echo "$(GREEN)Homelab started. Runtime: $(RUNTIME)$(NC)"
+	@printf "%b\n" "$(GREEN)Homelab started. Runtime: $(RUNTIME)$(NC)"
 
 stop: cluster-stop runtime-stop ## Stop everything (cluster + runtime)
-	@echo "$(YELLOW)Homelab stopped.$(NC)"
+	@printf "%b\n" "$(YELLOW)Homelab stopped.$(NC)"
 
 restart: stop start ## Restart everything
-	@echo "$(GREEN)Homelab restarted.$(NC)"
+	@printf "%b\n" "$(GREEN)Homelab restarted.$(NC)"
 
 status: runtime-status cluster-status nodes ## Show full status
 	@echo ""
-	@echo "$(GREEN)Kubeconfig: $(KUBECONFIG_PATH)$(NC)"
+	@printf "%b\n" "$(GREEN)Kubeconfig: $(KUBECONFIG_PATH)$(NC)"
 
 ##@ Kubernetes Config
 
 kubeconfig: ## Merge kubeconfig to ~/.kube/config
-	@echo "$(GREEN)Merging kubeconfig to ~/.kube/config...$(NC)"
+	@printf "%b\n" "$(GREEN)Merging kubeconfig to ~/.kube/config...$(NC)"
 	k3d kubeconfig merge $(CLUSTER_NAME) --kubeconfig-merge-default --kubeconfig-switch-context
-	@echo "$(GREEN)Context switched to k3d-$(CLUSTER_NAME)$(NC)"
+	@printf "%b\n" "$(GREEN)Context switched to k3d-$(CLUSTER_NAME)$(NC)"
 
 kubeconfig-show: ## Show kubeconfig path
 	@echo "$(KUBECONFIG_PATH)"
@@ -236,16 +319,16 @@ kubeconfig-show: ## Show kubeconfig path
 ##@ NFS Storage
 
 nfs-install: ## Install NFS CSI driver via Helm
-	@echo "$(GREEN)Installing NFS CSI driver...$(NC)"
+	@printf "%b\n" "$(GREEN)Installing NFS CSI driver...$(NC)"
 	helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts || true
 	helm repo update
 	helm upgrade --install csi-driver-nfs csi-driver-nfs/csi-driver-nfs \
 		-n kube-system \
 		--set externalSnapshotter.enabled=false
-	@echo "$(GREEN)NFS CSI driver installed.$(NC)"
+	@printf "%b\n" "$(GREEN)NFS CSI driver installed.$(NC)"
 
 nfs-storageclass: ## Apply NFS StorageClass
-	@echo "$(GREEN)Applying NFS StorageClass...$(NC)"
+	@printf "%b\n" "$(GREEN)Applying NFS StorageClass...$(NC)"
 	kubectl apply -f $(NFS_STORAGECLASS)
 
 nfs-status: ## Show NFS CSI driver status
@@ -281,14 +364,14 @@ events: ## Show recent cluster events
 
 logs: ## Show logs for a pod (usage: make logs POD=<pod-name> NS=<namespace>)
 ifndef POD
-	@echo "$(RED)Error: POD is required. Usage: make logs POD=<pod-name> NS=<namespace>$(NC)"
+	@printf "%b\n" "$(RED)Error: POD is required. Usage: make logs POD=<pod-name> NS=<namespace>$(NC)"
 else
 	kubectl logs -n $(or $(NS),default) $(POD) --tail=100
 endif
 
 shell: ## Open shell in a pod (usage: make shell POD=<pod-name> NS=<namespace>)
 ifndef POD
-	@echo "$(RED)Error: POD is required. Usage: make shell POD=<pod-name> NS=<namespace>$(NC)"
+	@printf "%b\n" "$(RED)Error: POD is required. Usage: make shell POD=<pod-name> NS=<namespace>$(NC)"
 else
 	kubectl exec -it -n $(or $(NS),default) $(POD) -- /bin/sh
 endif
@@ -305,7 +388,7 @@ top-pods: ## Show pod resource usage
 ##@ Docker/Podman Context
 
 docker-context: ## Switch Docker context to default (Podman)
-	@echo "$(GREEN)Switching Docker context to default...$(NC)"
+	@printf "%b\n" "$(GREEN)Switching Docker context to default...$(NC)"
 	docker context use default
 	@echo ""
 	docker context list
@@ -313,15 +396,17 @@ docker-context: ## Switch Docker context to default (Podman)
 ##@ Git
 
 git-init: ## Initialize git repository
-	@echo "$(GREEN)Initializing git repository...$(NC)"
+	@printf "%b\n" "$(GREEN)Initializing git repository...$(NC)"
 	git init
 	git add .
 	git commit -m "Initial commit: homelab k3d setup"
-	@echo "$(GREEN)Git repository initialized.$(NC)"
+	@printf "%b\n" "$(GREEN)Git repository initialized.$(NC)"
 
 ##@ Info
 
 info: ## Show environment info
+	@echo "OS:              $(OS)"
+	@echo "Runtime:         $(RUNTIME)"
 	@echo "Cluster Name:    $(CLUSTER_NAME)"
 	@echo "K3D Config:      $(K3D_CONFIG)"
 	@echo "Kubeconfig:      $(KUBECONFIG_PATH)"
@@ -329,6 +414,9 @@ info: ## Show environment info
 	@echo ""
 	@echo "Podman:"
 	@podman --version 2>/dev/null || echo "  Not installed"
+	@echo ""
+	@echo "Docker:"
+	@docker --version 2>/dev/null || echo "  Not installed"
 	@echo ""
 	@echo "k3d:"
 	@k3d --version 2>/dev/null || echo "  Not installed"
@@ -345,7 +433,7 @@ tailscale-ip: ## Show Tailscale IP
 ##@ ArgoCD
 
 argocd-install: ## Install ArgoCD via Helm
-	@echo "$(GREEN)Installing ArgoCD...$(NC)"
+	@printf "%b\n" "$(GREEN)Installing ArgoCD...$(NC)"
 	helm repo add argo https://argoproj.github.io/argo-helm || true
 	helm repo update
 	kubectl create namespace $(ARGOCD_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
@@ -356,34 +444,34 @@ argocd-install: ## Install ArgoCD via Helm
 		--set "applicationSet.enabled=true" \
 		--timeout 10m \
 		--wait
-	@echo "$(GREEN)ArgoCD installed. Run 'make argocd-password' to get admin password.$(NC)"
+	@printf "%b\n" "$(GREEN)ArgoCD installed. Run 'make argocd-password' to get admin password.$(NC)"
 
 argocd-uninstall: ## Uninstall ArgoCD
-	@echo "$(RED)Uninstalling ArgoCD...$(NC)"
+	@printf "%b\n" "$(RED)Uninstalling ArgoCD...$(NC)"
 	helm uninstall argocd --namespace $(ARGOCD_NAMESPACE) || true
 	kubectl delete namespace $(ARGOCD_NAMESPACE) || true
 
 argocd-password: ## Get ArgoCD admin password
-	@echo "$(GREEN)ArgoCD admin password:$(NC)"
+	@printf "%b\n" "$(GREEN)ArgoCD admin password:$(NC)"
 	@kubectl get secret argocd-initial-admin-secret \
 		--namespace $(ARGOCD_NAMESPACE) \
 		-o jsonpath="{.data.password}" | base64 -d && echo
 
 argocd-port-forward: ## Port-forward ArgoCD UI to localhost:8080
-	@echo "$(GREEN)ArgoCD UI: http://localhost:$(ARGOCD_PORT)$(NC)"
-	@echo "$(YELLOW)Username: admin$(NC)"
-	@echo "$(YELLOW)Run 'make argocd-password' for password$(NC)"
+	@printf "%b\n" "$(GREEN)ArgoCD UI: http://localhost:$(ARGOCD_PORT)$(NC)"
+	@printf "%b\n" "$(YELLOW)Username: admin$(NC)"
+	@printf "%b\n" "$(YELLOW)Run 'make argocd-password' for password$(NC)"
 	kubectl port-forward svc/argocd-server -n $(ARGOCD_NAMESPACE) $(ARGOCD_PORT):443
 
 argocd-status: ## Show ArgoCD status
-	@echo "$(GREEN)ArgoCD Pods:$(NC)"
+	@printf "%b\n" "$(GREEN)ArgoCD Pods:$(NC)"
 	@kubectl get pods -n $(ARGOCD_NAMESPACE)
 	@echo ""
-	@echo "$(GREEN)ArgoCD Services:$(NC)"
+	@printf "%b\n" "$(GREEN)ArgoCD Services:$(NC)"
 	@kubectl get svc -n $(ARGOCD_NAMESPACE)
 
 argocd-repo-apply: ## Apply ArgoCD repository configuration (requires External Secrets)
-	@echo "$(GREEN)Applying ArgoCD repository configuration...$(NC)"
+	@printf "%b\n" "$(GREEN)Applying ArgoCD repository configuration...$(NC)"
 	@if kubectl get clustersecretstore azure-keyvault-store >/dev/null 2>&1; then \
 		kubectl apply -f extras/local/argocd/repo-cd-homelab.yaml; \
 		echo "$(GREEN)Repository ExternalSecret applied. Waiting for sync...$(NC)"; \
@@ -396,14 +484,14 @@ argocd-repo-apply: ## Apply ArgoCD repository configuration (requires External S
 	fi
 
 argocd-repo-status: ## Show ArgoCD repository status
-	@echo "$(GREEN)ArgoCD Repositories:$(NC)"
+	@printf "%b\n" "$(GREEN)ArgoCD Repositories:$(NC)"
 	@kubectl get secret -n $(ARGOCD_NAMESPACE) -l argocd.argoproj.io/secret-type=repository
 	@echo ""
-	@echo "$(GREEN)ExternalSecrets:$(NC)"
+	@printf "%b\n" "$(GREEN)ExternalSecrets:$(NC)"
 	@kubectl get externalsecret -n $(ARGOCD_NAMESPACE) 2>/dev/null || echo "No ExternalSecrets"
 
 argocd-change-password: ## Change ArgoCD admin password (from ARGOCD_ADMIN_PASSWORD in .env)
-	@echo "$(GREEN)Changing ArgoCD admin password...$(NC)"
+	@printf "%b\n" "$(GREEN)Changing ArgoCD admin password...$(NC)"
 	@if [ -z "$(ARGOCD_ADMIN_PASSWORD)" ]; then \
 		echo "$(RED)ERROR: ARGOCD_ADMIN_PASSWORD not set in .env$(NC)"; \
 		exit 1; \
@@ -412,7 +500,7 @@ argocd-change-password: ## Change ArgoCD admin password (from ARGOCD_ADMIN_PASSW
 		echo "$(RED)ERROR: argocd CLI not installed. Install with: brew install argocd$(NC)"; \
 		exit 1; \
 	fi
-	@echo "$(YELLOW)Starting port-forward in background...$(NC)"
+	@printf "%b\n" "$(YELLOW)Starting port-forward in background...$(NC)"
 	@kubectl port-forward svc/argocd-server -n $(ARGOCD_NAMESPACE) $(ARGOCD_PORT):443 &>/dev/null & \
 		PF_PID=$$!; \
 		sleep 2; \
@@ -427,17 +515,17 @@ argocd-change-password: ## Change ArgoCD admin password (from ARGOCD_ADMIN_PASSW
 ##@ Sealed Secrets
 
 sealed-secrets-install: ## Install Sealed Secrets via Helm
-	@echo "$(GREEN)Installing Sealed Secrets...$(NC)"
+	@printf "%b\n" "$(GREEN)Installing Sealed Secrets...$(NC)"
 	helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets || true
 	helm repo update
 	kubectl create namespace $(SEALED_SECRETS_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets \
 		--namespace $(SEALED_SECRETS_NAMESPACE) \
 		--set fullnameOverride=sealed-secrets
-	@echo "$(GREEN)Sealed Secrets installed.$(NC)"
+	@printf "%b\n" "$(GREEN)Sealed Secrets installed.$(NC)"
 
 sealed-secrets-uninstall: ## Uninstall Sealed Secrets
-	@echo "$(RED)Uninstalling Sealed Secrets...$(NC)"
+	@printf "%b\n" "$(RED)Uninstalling Sealed Secrets...$(NC)"
 	helm uninstall sealed-secrets --namespace $(SEALED_SECRETS_NAMESPACE) || true
 	kubectl delete namespace $(SEALED_SECRETS_NAMESPACE) || true
 
@@ -445,17 +533,17 @@ sealed-secrets-status: ## Show Sealed Secrets status
 	@kubectl get pods -n $(SEALED_SECRETS_NAMESPACE)
 
 sealed-secrets-cert: ## Get Sealed Secrets public certificate
-	@echo "$(GREEN)Fetching Sealed Secrets certificate...$(NC)"
+	@printf "%b\n" "$(GREEN)Fetching Sealed Secrets certificate...$(NC)"
 	@kubeseal --fetch-cert \
 		--controller-name=sealed-secrets \
 		--controller-namespace=$(SEALED_SECRETS_NAMESPACE)
 
 sealed-secrets-backup: ## Backup Sealed Secrets keys (run before cluster delete!)
-	@echo "$(GREEN)Backing up Sealed Secrets keys...$(NC)"
+	@printf "%b\n" "$(GREEN)Backing up Sealed Secrets keys...$(NC)"
 	@mkdir -p .secrets
 	@kubectl get secret -n $(SEALED_SECRETS_NAMESPACE) -l sealedsecrets.bitnami.com/sealed-secrets-key -o yaml > .secrets/sealed-secrets-keys.yaml
-	@echo "$(GREEN)Keys backed up to .secrets/sealed-secrets-keys.yaml$(NC)"
-	@echo "$(RED)WARNING: This file contains private keys! Already in .gitignore.$(NC)"
+	@printf "%b\n" "$(GREEN)Keys backed up to .secrets/sealed-secrets-keys.yaml$(NC)"
+	@printf "%b\n" "$(RED)WARNING: This file contains private keys! Already in .gitignore.$(NC)"
 
 sealed-secrets-restore: ## Restore Sealed Secrets keys (run before sealed-secrets-install)
 	@if [ -f ".secrets/sealed-secrets-keys.yaml" ]; then \
@@ -470,7 +558,7 @@ sealed-secrets-restore: ## Restore Sealed Secrets keys (run before sealed-secret
 ##@ External Secrets
 
 external-secrets-install: ## Install External Secrets Operator via Helm
-	@echo "$(GREEN)Installing External Secrets Operator...$(NC)"
+	@printf "%b\n" "$(GREEN)Installing External Secrets Operator...$(NC)"
 	helm repo add external-secrets https://charts.external-secrets.io || true
 	helm repo update
 	kubectl create namespace $(EXTERNAL_SECRETS_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
@@ -478,10 +566,10 @@ external-secrets-install: ## Install External Secrets Operator via Helm
 		--namespace $(EXTERNAL_SECRETS_NAMESPACE) \
 		--set installCRDs=true \
 		--set fullnameOverride=external-secrets
-	@echo "$(GREEN)External Secrets Operator installed.$(NC)"
+	@printf "%b\n" "$(GREEN)External Secrets Operator installed.$(NC)"
 
 external-secrets-uninstall: ## Uninstall External Secrets Operator
-	@echo "$(RED)Uninstalling External Secrets Operator...$(NC)"
+	@printf "%b\n" "$(RED)Uninstalling External Secrets Operator...$(NC)"
 	helm uninstall external-secrets --namespace $(EXTERNAL_SECRETS_NAMESPACE) || true
 	kubectl delete namespace $(EXTERNAL_SECRETS_NAMESPACE) || true
 
@@ -491,7 +579,7 @@ external-secrets-status: ## Show External Secrets Operator status
 ##@ Azure Key Vault
 
 azure-credentials-create: ## Create sealed secret for Azure Key Vault credentials
-	@echo "$(GREEN)Creating Azure Key Vault credentials secret...$(NC)"
+	@printf "%b\n" "$(GREEN)Creating Azure Key Vault credentials secret...$(NC)"
 	@if [ -z "$(AZURE_CLIENT_ID)" ] || [ -z "$(AZURE_CLIENT_SECRET)" ]; then \
 		echo "$(RED)ERROR: AZURE_CLIENT_ID and AZURE_CLIENT_SECRET required in .env$(NC)"; \
 		exit 1; \
@@ -512,17 +600,17 @@ azure-credentials-create: ## Create sealed secret for Azure Key Vault credential
 		< /tmp/azure-credentials.yaml \
 		> extras/local/external-secrets/azure-keyvault-credentials.yaml
 	@rm -f /tmp/azure-credentials.yaml
-	@echo "$(GREEN)Sealed secret created: extras/local/external-secrets/azure-keyvault-credentials.yaml$(NC)"
+	@printf "%b\n" "$(GREEN)Sealed secret created: extras/local/external-secrets/azure-keyvault-credentials.yaml$(NC)"
 
 azure-credentials-apply: ## Apply Azure Key Vault credentials sealed secret
 	@if [ ! -f "extras/local/external-secrets/azure-keyvault-credentials.yaml" ]; then \
 		echo "$(RED)ERROR: Run 'make azure-credentials-create' first$(NC)"; \
 		exit 1; \
 	fi
-	@echo "$(GREEN)Applying Azure credentials sealed secret...$(NC)"
+	@printf "%b\n" "$(GREEN)Applying Azure credentials sealed secret...$(NC)"
 	kubectl apply -f extras/local/external-secrets/azure-keyvault-credentials.yaml
 	@sleep 3
-	@echo "$(GREEN)Verifying secret was created:$(NC)"
+	@printf "%b\n" "$(GREEN)Verifying secret was created:$(NC)"
 	@kubectl get secret azure-keyvault-credentials -n $(EXTERNAL_SECRETS_NAMESPACE)
 
 azure-store-apply: ## Apply Azure Key Vault ClusterSecretStore
@@ -530,13 +618,13 @@ azure-store-apply: ## Apply Azure Key Vault ClusterSecretStore
 		echo "$(RED)ERROR: extras/local/external-secrets/azure-keyvault-store.yaml not found$(NC)"; \
 		exit 1; \
 	fi
-	@echo "$(GREEN)Applying Azure Key Vault ClusterSecretStore...$(NC)"
+	@printf "%b\n" "$(GREEN)Applying Azure Key Vault ClusterSecretStore...$(NC)"
 	kubectl apply -f extras/local/external-secrets/azure-keyvault-store.yaml
-	@echo "$(GREEN)Verifying ClusterSecretStore:$(NC)"
+	@printf "%b\n" "$(GREEN)Verifying ClusterSecretStore:$(NC)"
 	@kubectl get clustersecretstore azure-keyvault-store
 
 azure-test: ## Test Azure Key Vault connection
-	@echo "$(GREEN)Testing Azure Key Vault connection...$(NC)"
+	@printf "%b\n" "$(GREEN)Testing Azure Key Vault connection...$(NC)"
 	@echo ""
 	@echo "ClusterSecretStore status:"
 	@kubectl get clustersecretstore azure-keyvault-store -o jsonpath='{.status.conditions[*].message}' 2>/dev/null && echo "" || echo "Not found"
@@ -547,11 +635,11 @@ azure-test: ## Test Azure Key Vault connection
 ##@ GitOps Bootstrap
 
 bootstrap-secrets: sealed-secrets-install external-secrets-install ## Install both Sealed Secrets and External Secrets
-	@echo "$(GREEN)Secrets management stack installed.$(NC)"
-	@echo "$(YELLOW)Next: Create Azure credentials with 'make azure-credentials-create'$(NC)"
+	@printf "%b\n" "$(GREEN)Secrets management stack installed.$(NC)"
+	@printf "%b\n" "$(YELLOW)Next: Create Azure credentials with 'make azure-credentials-create'$(NC)"
 
 bootstrap-all: argocd-install bootstrap-secrets ## Full bootstrap: ArgoCD + Secrets management
-	@echo "$(GREEN)Bootstrap complete!$(NC)"
+	@printf "%b\n" "$(GREEN)Bootstrap complete!$(NC)"
 	@echo ""
 	@echo "Next steps:"
 	@echo "  1. make argocd-port-forward  # Access ArgoCD UI"
