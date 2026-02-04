@@ -13,12 +13,19 @@ set dotenv-load := true
 # Configuration
 # =============================================================================
 
-# Cluster configuration
-k3d_config := env_var_or_default("K3D_CONFIG", "k3d/config-linux.yaml")
-cluster_name := `yq -r '.metadata.name' ${K3D_CONFIG:-k3d/config-linux.yaml}`
+# OS detection (must be first for conditional config)
+os := os()
+
+# k3d config selection based on OS (can be overridden with K3D_CONFIG env var)
+# macOS: k3d/config.yaml (cluster: homelab)
+# Linux: k3d/config-linux.yaml (cluster: homelab-nix)
+k3d_config := env_var_or_default("K3D_CONFIG", if os == "macos" { "k3d/config.yaml" } else { "k3d/config-linux.yaml" })
+
+# Cluster configuration (derived from k3d_config)
+cluster_name := if os == "macos" { `yq -r '.metadata.name' k3d/config.yaml` } else { `yq -r '.metadata.name' k3d/config-linux.yaml` }
 kubeconfig_path := env_var_or_default("KUBECONFIG_PATH", "~/.config/k3d/kubeconfig-" + cluster_name + ".yaml")
 nfs_storageclass := env_var_or_default("NFS_STORAGECLASS", "extras/nfs/storageclass-nfs.yaml")
-nfs_volume := env_var_or_default("NFS_VOLUME", "/mnt/k8s-volumes")
+nfs_volume := env_var_or_default("NFS_VOLUME", if os == "macos" { "/private/nfs/k8s-volumes" } else { "/mnt/k8s-volumes" })
 
 # Podman VM configuration (macOS only)
 podman_cpus := env_var_or_default("PODMAN_CPUS", "6")
@@ -31,16 +38,15 @@ argocd_port := env_var_or_default("ARGOCD_PORT", "8080")
 sealed_secrets_namespace := env_var_or_default("SEALED_SECRETS_NAMESPACE", "sealed-secrets")
 external_secrets_namespace := env_var_or_default("EXTERNAL_SECRETS_NAMESPACE", "external-secrets")
 
-# OS detection
-os := os()
+# Runtime detection script (use in bash recipes for dynamic detection)
+# Can be overridden with RUNTIME env var
+_detect_runtime_macos := 'if [[ -n "${RUNTIME:-}" ]]; then echo "$RUNTIME"; elif docker info 2>/dev/null | grep -q "Operating System: Docker Desktop"; then echo "docker"; elif podman machine list 2>/dev/null | grep -q "Currently running"; then echo "podman"; else echo "none"; fi'
+_detect_runtime_linux := 'if [[ -n "${RUNTIME:-}" ]]; then echo "$RUNTIME"; elif podman info >/dev/null 2>&1; then echo "podman"; elif docker info >/dev/null 2>&1; then echo "docker"; else echo "none"; fi'
+_detect_runtime := if os == "macos" { _detect_runtime_macos } else { _detect_runtime_linux }
 
-# Runtime detection
-# macOS: prefer Docker Desktop, Linux: prefer Podman rootful
-runtime := env_var_or_default("RUNTIME", if os == "macos" {
-    `if docker info 2>/dev/null | grep -q "Operating System: Docker Desktop"; then echo "docker"; elif podman machine list 2>/dev/null | grep -q "Currently running"; then echo "podman"; else echo "none"; fi`
-} else {
-    `if podman info >/dev/null 2>&1; then echo "podman"; elif docker info >/dev/null 2>&1; then echo "docker"; else echo "none"; fi`
-})
+# Static runtime hint for DOCKER_HOST/DOCKER_SOCK exports (default based on OS)
+# macOS defaults to docker, Linux defaults to podman
+runtime := env_var_or_default("RUNTIME", if os == "macos" { "docker" } else { "podman" })
 
 # Podman socket detection (for k3d compatibility)
 # On Linux: prefer rootful (/run/podman) over rootless (user socket)
@@ -152,7 +158,8 @@ init-docker:
 # Start everything (runtime + cluster)
 [group('lifecycle')]
 start: runtime-start cluster-start
-    @echo -e "{{green}}Homelab started. Runtime: {{runtime}}{{nc}}"
+    #!/usr/bin/env bash
+    echo -e "{{green}}Homelab started. Runtime: $({{_detect_runtime}}){{nc}}"
 
 # Stop everything (cluster + runtime)
 [group('lifecycle')]
@@ -178,10 +185,11 @@ status: runtime-status cluster-status nodes
 [group('runtime')]
 runtime-start:
     #!/usr/bin/env bash
-    echo -e "{{green}}OS: {{os}} | Runtime: {{runtime}}{{nc}}"
-    if [[ "{{runtime}}" == "docker" ]]; then
+    DETECTED=$({{_detect_runtime}})
+    echo -e "{{green}}OS: {{os}} | Runtime: $DETECTED{{nc}}"
+    if [[ "$DETECTED" == "docker" ]]; then
         just docker-start
-    elif [[ "{{runtime}}" == "podman" ]]; then
+    elif [[ "$DETECTED" == "podman" ]]; then
         just podman-start
     else
         if [[ "{{os}}" == "macos" ]]; then
@@ -197,9 +205,10 @@ runtime-start:
 [group('runtime')]
 runtime-stop:
     #!/usr/bin/env bash
-    if [[ "{{runtime}}" == "docker" ]]; then
+    DETECTED=$({{_detect_runtime}})
+    if [[ "$DETECTED" == "docker" ]]; then
         just docker-stop
-    elif [[ "{{runtime}}" == "podman" ]]; then
+    elif [[ "$DETECTED" == "podman" ]]; then
         just podman-stop
     fi
 
@@ -207,10 +216,11 @@ runtime-stop:
 [group('runtime')]
 runtime-status:
     #!/usr/bin/env bash
-    echo -e "{{green}}OS: {{os}} | Runtime: {{runtime}}{{nc}}"
-    if [[ "{{runtime}}" == "docker" ]]; then
+    DETECTED=$({{_detect_runtime}})
+    echo -e "{{green}}OS: {{os}} | Runtime: $DETECTED{{nc}}"
+    if [[ "$DETECTED" == "docker" ]]; then
         just docker-status
-    elif [[ "{{runtime}}" == "podman" ]]; then
+    elif [[ "$DETECTED" == "podman" ]]; then
         just podman-status
     else
         echo -e "{{red}}No runtime detected.{{nc}}"
@@ -374,9 +384,10 @@ cluster-delete:
 [group('cluster')]
 cluster-start:
     #!/usr/bin/env bash
+    DETECTED=$({{_detect_runtime}})
     echo -e "{{green}}Starting k3d cluster '{{cluster_name}}'...{{nc}}"
     k3d cluster start {{cluster_name}} || true
-    if [[ "{{runtime}}" == "podman" ]]; then
+    if [[ "$DETECTED" == "podman" ]]; then
         echo -e "{{green}}Ensuring serverlb is running (Podman workaround)...{{nc}}"
         podman start k3d-{{cluster_name}}-serverlb 2>/dev/null || true
         sleep 5
@@ -837,27 +848,28 @@ bootstrap-status: argocd-status sealed-secrets-status external-secrets-status ar
 # Show environment info
 [group('info')]
 info:
-    @echo "OS:               {{os}}"
-    @echo "Runtime:          {{runtime}}"
-    @echo "Cluster Name:     {{cluster_name}}"
-    @echo "K3D Config:       {{k3d_config}}"
-    @echo "Kubeconfig:       {{kubeconfig_path}}"
-    @echo "NFS StorageClass: {{nfs_storageclass}}"
-    @echo ""
-    @echo "Podman:"
-    @podman --version 2>/dev/null || echo "  Not installed"
-    @echo ""
-    @echo "Docker:"
-    @docker --version 2>/dev/null || echo "  Not installed"
-    @echo ""
-    @echo "k3d:"
-    @k3d --version 2>/dev/null || echo "  Not installed"
-    @echo ""
-    @echo "kubectl:"
-    @kubectl version --client 2>/dev/null || echo "  Not installed"
-    @echo ""
-    @echo "helm:"
-    @helm version --short 2>/dev/null || echo "  Not installed"
+    #!/usr/bin/env bash
+    echo "OS:               {{os}}"
+    echo "Runtime:          $({{_detect_runtime}})"
+    echo "Cluster Name:     {{cluster_name}}"
+    echo "K3D Config:       {{k3d_config}}"
+    echo "Kubeconfig:       {{kubeconfig_path}}"
+    echo "NFS StorageClass: {{nfs_storageclass}}"
+    echo ""
+    echo "Podman:"
+    podman --version 2>/dev/null || echo "  Not installed"
+    echo ""
+    echo "Docker:"
+    docker --version 2>/dev/null || echo "  Not installed"
+    echo ""
+    echo "k3d:"
+    k3d --version 2>/dev/null || echo "  Not installed"
+    echo ""
+    echo "kubectl:"
+    kubectl version --client 2>/dev/null || echo "  Not installed"
+    echo ""
+    echo "helm:"
+    helm version --short 2>/dev/null || echo "  Not installed"
 
 # Show Tailscale IP
 [group('info')]

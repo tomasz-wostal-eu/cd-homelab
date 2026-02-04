@@ -1,0 +1,5 @@
+---
+# Ztunnel - common values
+# L4 proxy for Istio Ambient mode
+
+terminationGracePeriodSeconds: 30

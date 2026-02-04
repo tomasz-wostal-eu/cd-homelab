@@ -1,0 +1,10 @@
+---
+# Envoy Gateway - common values
+# Gateway API implementation
+
+config:
+  envoyGateway:
+    gateway:
+      controllerName: gateway.envoyproxy.io/gatewayclass-controller
+    provider:
+      type: Kubernetes

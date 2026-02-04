@@ -1,0 +1,11 @@
+---
+# Istio CNI - common values
+# Required for Ambient mode
+
+profile: ambient
+
+cni:
+  logLevel: info
+  privileged: true
+  ambient:
+    enabled: true

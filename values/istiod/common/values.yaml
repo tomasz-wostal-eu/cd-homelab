@@ -1,0 +1,16 @@
+---
+# Istiod - common values
+# Control plane for Istio Ambient
+
+profile: ambient
+
+meshConfig:
+  accessLogFile: /dev/stdout
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_DNS_CAPTURE: "true"
+      ISTIO_META_DNS_AUTO_ALLOCATE: "true"
+
+global:
+  istioNamespace: istio-system
+  logAsJson: true

@@ -1,0 +1,50 @@
+# EMQX 5.x Common Values
+# https://github.com/emqx/emqx/tree/master/deploy/charts/emqx
+
+replicaCount: 1
+
+image:
+  repository: emqx/emqx
+  pullPolicy: IfNotPresent
+
+# EMQX Core Configuration
+emqxConfig:
+  EMQX_CLUSTER__DISCOVERY_STRATEGY: dns
+  EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+
+# Service configuration
+service:
+  type: ClusterIP
+  mqtt: 1883
+  mqttssl: 8883
+  ws: 8083
+  wss: 8084
+  dashboard: 18083
+  # api: 8081
+
+# Ingress (disabled by default, enable per-environment)
+ingress:
+  dashboard:
+    enabled: false
+  mqtt:
+    enabled: false
+
+# Resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Probes
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 30
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 5

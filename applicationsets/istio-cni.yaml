@@ -1,0 +1,96 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: istio-cni
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: istio-system
+            helmRevision: "1.24.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: istio-cni-{{ .name }}
+      labels:
+        app.kubernetes.io/name: istio-cni
+        app.kubernetes.io/instance: istio-cni-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+        argocd.argoproj.io/sync-wave: "0"
+    spec:
+      project: platform-networking
+      sources:
+        - repoURL: https://istio-release.storage.googleapis.com/charts
+          chart: cni
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: istio-cni
+            parameters:
+              - name: profile
+                value: ambient
+              - name: global.platform
+                value: k3s
+            valueFiles:
+              - $values/values/istio-cni/common/values.yaml
+              - $values/values/istio-cni/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 10m
+        managedNamespaceMetadata:
+          labels:
+            owner: argocd
+            app.kubernetes.io/part-of: istio
+            region: "{{ .region }}"
+            env: "{{ .env }}"
+          annotations:
+            argocd.argoproj.io/managed-by: "istio-cni-{{ .name }}"
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true
+      ignoreDifferences:
+        - group: apps
+          kind: DaemonSet
+          name: istio-cni-node
+          namespace: istio-system
+          jsonPointers:
+            - /spec/template/spec/containers/0/env

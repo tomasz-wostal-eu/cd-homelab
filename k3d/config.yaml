@@ -3,6 +3,9 @@ kind: Simple
 metadata:
   name: homelab
 
+# Use modern k3s version (1.25+ required for External Secrets CEL validation)
+image: rancher/k3s:v1.31.4-k3s1
+
 servers: 1
 agents: 3
 
@@ -27,6 +30,9 @@ options:
       - arg: "--disable=servicelb"
         nodeFilters:
           - server:*
+  k3d:
+    wait: true
+    timeout: "300s"
 
 volumes:
   - volume: /private/nfs/k8s-volumes:/var/lib/rancher/k3s/storage

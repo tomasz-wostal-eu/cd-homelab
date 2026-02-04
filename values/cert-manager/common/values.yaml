@@ -1,0 +1,27 @@
+---
+# cert-manager common values
+
+installCRDs: true
+
+global:
+  leaderElection:
+    namespace: cert-manager
+
+replicaCount: 1
+
+webhook:
+  replicaCount: 1
+
+cainjector:
+  replicaCount: 1
+
+# Security
+securityContext:
+  runAsNonRoot: true
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
