@@ -13,7 +13,7 @@ spec:
           - name: homelab
             cluster: https://kubernetes.default.svc
             namespace: envoy-gateway-system
-            helmRevision: "v1.4.*"
+            helmRevision: "v1.4.6"
             env: homelab
             region: local
             type: homelab
@@ -32,18 +32,28 @@ spec:
         argocd.argoproj.io/sync-wave: "3"
     spec:
       project: platform-networking
-      sources:
-        - repoURL: oci://docker.io/envoyproxy
-          chart: gateway-helm
-          targetRevision: "{{ .helmRevision }}"
-          helm:
-            releaseName: envoy-gateway
-            valueFiles:
-              - $values/values/envoy-gateway/common/values.yaml
-              - $values/values/envoy-gateway/{{ .region }}/{{ .env }}/values.yaml
-        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
-          targetRevision: main
-          ref: values
+      source:
+        repoURL: docker.io/envoyproxy
+        chart: gateway-helm
+        targetRevision: "{{ .helmRevision }}"
+        helm:
+          releaseName: envoy-gateway
+          valuesObject:
+            config:
+              envoyGateway:
+                gateway:
+                  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+                provider:
+                  type: Kubernetes
+            deployment:
+              envoyGateway:
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 128Mi
+                  limits:
+                    cpu: 200m
+                    memory: 256Mi
       destination:
         server: "{{ .cluster }}"
         namespace: "{{ .namespace }}"
