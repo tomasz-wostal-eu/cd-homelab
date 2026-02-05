@@ -59,17 +59,5 @@ spec:
         - name: emqx
           port: 8083  # Backend is plain WS, TLS terminated at gateway
 ---
-# HTTPRoute for Dashboard HTTPS (port 18083)
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: emqx-dashboard
-  namespace: emqx
-spec:
-  parentRefs:
-    - name: emqx-gateway
-      sectionName: dashboard
-  rules:
-    - backendRefs:
-        - name: emqx
-          port: 18083
+# Dashboard HTTPRoute moved to dashboard-route.yaml
+# Access via central homelab-gateway: https://emqx.homelab.local

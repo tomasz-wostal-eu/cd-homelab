@@ -57,15 +57,5 @@ spec:
       allowedRoutes:
         namespaces:
           from: Same
-    # Dashboard HTTPS
-    - name: dashboard
-      protocol: HTTPS
-      port: 18083
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - name: emqx-tls-secret
-            kind: Secret
-      allowedRoutes:
-        namespaces:
-          from: Same
+    # Dashboard moved to central homelab-gateway on port 443
+    # Access via: https://emqx.homelab.local
