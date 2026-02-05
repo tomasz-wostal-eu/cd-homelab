@@ -12,17 +12,17 @@ emqxConfig:
   # Logging
   EMQX_LOG__CONSOLE__LEVEL: warning
 
-  # MQTT Bridge to Home Assistant EMQX
+  # MQTT Bridge from Home Assistant EMQX
   # Credentials loaded from secret via envFromSecret below
   EMQX_BRIDGES__MQTT__HA_BRIDGE__ENABLE: "true"
-  EMQX_BRIDGES__MQTT__HA_BRIDGE__POOL_SIZE: "4"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__PROTO_VER: "v5"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__CLEAN_START: "true"
-  # Egress: forward all local messages to remote with prefix
-  EMQX_BRIDGES__MQTT__HA_BRIDGE__EGRESS__LOCAL__TOPIC: "#"
-  EMQX_BRIDGES__MQTT__HA_BRIDGE__EGRESS__REMOTE__TOPIC: "homelab/${topic}"
-  EMQX_BRIDGES__MQTT__HA_BRIDGE__EGRESS__REMOTE__QOS: "1"
-  EMQX_BRIDGES__MQTT__HA_BRIDGE__EGRESS__REMOTE__RETAIN: "false"
+  # Ingress: subscribe to all topics from HA and republish locally
+  EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__REMOTE__TOPIC: "#"
+  EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__REMOTE__QOS: "1"
+  EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__TOPIC: "${topic}"
+  EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__QOS: "${qos}"
+  EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__RETAIN: "${retain}"
 
 # Load bridge credentials from secret (keys must be EMQX env var names)
 envFromSecret: "emqx-mqtt-bridge-credentials"
