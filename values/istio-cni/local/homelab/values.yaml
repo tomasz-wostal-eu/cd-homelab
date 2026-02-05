@@ -3,8 +3,8 @@
 
 cni:
   # k3s/k3d specific paths
-  cni_bin_dir: /bin
-  cni_conf_dir: /var/lib/rancher/k3s/agent/etc/cni/net.d
+  cniBinDir: /bin
+  cniConfDir: /var/lib/rancher/k3s/agent/etc/cni/net.d
   resources:
     requests:
       cpu: 10m
