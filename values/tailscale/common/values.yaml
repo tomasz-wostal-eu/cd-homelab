@@ -5,7 +5,7 @@
 operatorConfig:
   logging: info
   defaultTags:
-    - "tag:k8s-homelab"
+    - "tag:k8s"
 
 # RBAC
 rbac:

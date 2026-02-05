@@ -7,7 +7,7 @@ metadata:
   name: emqx-dashboard-tailscale
   namespace: emqx
   annotations:
-    tailscale.com/tags: "tag:k8s-homelab"
+    tailscale.com/tags: "tag:k8s"
 spec:
   ingressClassName: tailscale
   rules:
