@@ -1,0 +1,89 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tailscale
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: tailscale
+            helmRevision: "1.76.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: tailscale-{{ .name }}
+      labels:
+        app.kubernetes.io/name: tailscale
+        app.kubernetes.io/instance: tailscale-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "0"
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+    spec:
+      project: platform-networking
+      sources:
+        - repoURL: https://pkgs.tailscale.com/helmcharts
+          chart: tailscale-operator
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: tailscale-operator
+            valueFiles:
+              - $values/values/tailscale/common/values.yaml
+              - $values/values/tailscale/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          path: extras/{{ .region }}/tailscale
+          directory:
+            recurse: true
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m
+        managedNamespaceMetadata:
+          labels:
+            owner: argocd
+            app.kubernetes.io/part-of: tailscale
+            region: "{{ .region }}"
+            env: "{{ .env }}"
+          annotations:
+            argocd.argoproj.io/managed-by: "tailscale-{{ .name }}"
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=false
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true

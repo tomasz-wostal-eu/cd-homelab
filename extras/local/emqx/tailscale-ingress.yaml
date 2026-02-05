@@ -1,0 +1,27 @@
+---
+# Tailscale Ingress for EMQX Dashboard
+# Exposes dashboard on Tailscale network with automatic HTTPS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: emqx-dashboard-tailscale
+  namespace: emqx
+  annotations:
+    tailscale.com/tags: "tag:k8s-homelab"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: emqx.tailc90e09.ts.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: emqx
+                port:
+                  number: 18083
+  # Tailscale provides automatic TLS via MagicDNS
+  tls:
+    - hosts:
+        - emqx.tailc90e09.ts.net

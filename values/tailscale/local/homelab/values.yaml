@@ -1,0 +1,11 @@
+# Tailscale Operator - Homelab environment
+# Lightweight configuration for local k3d cluster
+
+# Resources for homelab
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi

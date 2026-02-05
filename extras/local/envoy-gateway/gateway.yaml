@@ -6,8 +6,16 @@ kind: Gateway
 metadata:
   name: homelab-gateway
   namespace: envoy-gateway-system
+  annotations:
+    # Use custom EnvoyProxy config for k3d compatibility
+    gateway.envoyproxy.io/proxy-config: homelab-proxy-config
 spec:
   gatewayClassName: envoy-gateway
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: homelab-proxy-config
   listeners:
     # HTTP (redirect to HTTPS)
     - name: http
