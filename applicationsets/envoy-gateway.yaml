@@ -32,33 +32,28 @@ spec:
         argocd.argoproj.io/sync-wave: "3"
     spec:
       project: platform-networking
-      sources:
-        - repoURL: docker.io/envoyproxy
-          chart: gateway-helm
-          targetRevision: "{{ .helmRevision }}"
-          helm:
-            releaseName: envoy-gateway
-            valuesObject:
-              config:
-                envoyGateway:
-                  gateway:
-                    controllerName: gateway.envoyproxy.io/gatewayclass-controller
-                  provider:
-                    type: Kubernetes
-              deployment:
-                envoyGateway:
-                  resources:
-                    requests:
-                      cpu: 50m
-                      memory: 128Mi
-                    limits:
-                      cpu: 200m
-                      memory: 256Mi
-        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
-          targetRevision: main
-          path: extras/{{ .region }}/envoy-gateway
-          directory:
-            recurse: true
+      source:
+        repoURL: docker.io/envoyproxy
+        chart: gateway-helm
+        targetRevision: "{{ .helmRevision }}"
+        helm:
+          releaseName: envoy-gateway
+          valuesObject:
+            config:
+              envoyGateway:
+                gateway:
+                  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+                provider:
+                  type: Kubernetes
+            deployment:
+              envoyGateway:
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 128Mi
+                  limits:
+                    cpu: 200m
+                    memory: 256Mi
       destination:
         server: "{{ .cluster }}"
         namespace: "{{ .namespace }}"
