@@ -35,7 +35,7 @@ config:
           - "#"
         qos: 1
         connection_timeout: "30s"
-        persistent_session: true
+        persistent_session: false
         client_id: "telegraf-homelab"
         data_format: "json"
         topic_tag: "topic"
