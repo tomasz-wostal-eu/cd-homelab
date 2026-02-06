@@ -33,6 +33,7 @@ config:
           - "tcp://emqx.emqx.svc.cluster.local:1883"
         topics:
           - "homeassistant/#"
+          - "zigbee2mqtt/#"
           - "+/+/#"
         qos: 1
         connection_timeout: "30s"
