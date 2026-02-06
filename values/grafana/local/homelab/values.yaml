@@ -11,7 +11,7 @@ datasources:
     datasources:
       - name: InfluxDB
         type: influxdb
-        url: http://influxdb.monitoring.svc.cluster.local:8086
+        url: http://influxdb-influxdb2.monitoring.svc.cluster.local:80
         access: proxy
         isDefault: true
         jsonData:
