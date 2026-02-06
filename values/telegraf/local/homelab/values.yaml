@@ -21,7 +21,7 @@ config:
   outputs:
     - influxdb_v2:
         urls:
-          - "http://influxdb.monitoring.svc.cluster.local:8086"
+          - "http://influxdb-influxdb2.monitoring.svc.cluster.local:80"
         token: "homelab-super-secret-token"
         organization: "homelab"
         bucket: "mqtt"
