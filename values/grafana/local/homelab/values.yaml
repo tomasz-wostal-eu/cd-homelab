@@ -1,0 +1,30 @@
+# Grafana homelab - no PVC, default auth
+persistence:
+  enabled: false
+
+adminUser: admin
+adminPassword: admin
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: InfluxDB
+        type: influxdb
+        url: http://influxdb.monitoring.svc.cluster.local:8086
+        access: proxy
+        isDefault: true
+        jsonData:
+          version: Flux
+          organization: homelab
+          defaultBucket: mqtt
+        secureJsonData:
+          token: homelab-super-secret-token
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

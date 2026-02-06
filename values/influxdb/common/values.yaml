@@ -1,0 +1,3 @@
+# InfluxDB 2.x common config
+image:
+  tag: "2.7-alpine"

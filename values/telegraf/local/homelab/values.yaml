@@ -1,0 +1,46 @@
+# Telegraf: EMQX MQTT → InfluxDB
+config:
+  agent:
+    interval: "10s"
+    round_interval: true
+    metric_batch_size: 1000
+    metric_buffer_limit: 10000
+    flush_interval: "10s"
+    flush_jitter: "0s"
+
+  processors:
+    - enum:
+        mapping:
+          field: "status"
+          dest: "status_code"
+          value_mappings:
+            healthy: 1
+            problem: 2
+            critical: 3
+
+  outputs:
+    - influxdb_v2:
+        urls:
+          - "http://influxdb.monitoring.svc.cluster.local:8086"
+        token: "homelab-super-secret-token"
+        organization: "homelab"
+        bucket: "mqtt"
+
+  inputs:
+    - mqtt_consumer:
+        servers:
+          - "tcp://emqx.emqx.svc.cluster.local:1883"
+        topics:
+          - "#"
+        qos: 0
+        connection_timeout: "30s"
+        data_format: "json"
+        topic_tag: "topic"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi

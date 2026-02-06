@@ -1,0 +1,85 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: monitoring
+            helmRevision: "8.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: grafana-{{ .name }}
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/instance: grafana-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "6"
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+    spec:
+      project: apps
+      sources:
+        - repoURL: https://grafana.github.io/helm-charts
+          chart: grafana
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: grafana
+            valueFiles:
+              - $values/values/grafana/common/values.yaml
+              - $values/values/grafana/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m
+        managedNamespaceMetadata:
+          labels:
+            owner: argocd
+            app.kubernetes.io/part-of: monitoring
+            region: "{{ .region }}"
+            env: "{{ .env }}"
+            istio.io/dataplane-mode: ambient
+          annotations:
+            argocd.argoproj.io/managed-by: "grafana-{{ .name }}"
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true

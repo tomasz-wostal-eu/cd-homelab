@@ -1,0 +1,5 @@
+# Telegraf common config
+replicaCount: 1
+
+image:
+  tag: "1.32-alpine"

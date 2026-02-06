@@ -1,0 +1,18 @@
+# Homelab InfluxDB config - bez persistence
+adminUser:
+  organization: "homelab"
+  bucket: "mqtt"
+  user: "admin"
+  password: "changeme123"
+  token: "homelab-super-secret-token"
+
+persistence:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
