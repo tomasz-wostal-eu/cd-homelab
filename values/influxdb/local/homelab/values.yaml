@@ -1,13 +1,14 @@
-# Homelab InfluxDB config - bez persistence
+# Homelab InfluxDB config
 adminUser:
   organization: "homelab"
   bucket: "mqtt"
   user: "admin"
-  password: "changeme123"
-  token: "homelab-super-secret-token"
+  existingSecret: homelab-influxdb-credentials
 
 persistence:
-  enabled: false
+  enabled: true
+  storageClass: nfs-rwx
+  size: 5Gi
 
 resources:
   requests:

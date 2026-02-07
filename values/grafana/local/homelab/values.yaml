@@ -1,9 +1,18 @@
-# Grafana homelab - no PVC, default auth
+# Grafana homelab
 persistence:
-  enabled: false
+  enabled: true
+  storageClassName: nfs-rwx
+  size: 1Gi
 
-adminUser: admin
-adminPassword: admin
+admin:
+  existingSecret: homelab-grafana-credentials
+  userKey: admin-user
+  passwordKey: admin-password
+
+# Load InfluxDB token from secret as env var
+envFromSecrets:
+  - name: homelab-grafana-datasource-secrets
+    optional: false
 
 # Enable sidecar to auto-load dashboards from ConfigMaps
 sidecar:
@@ -29,7 +38,7 @@ datasources:
           organization: homelab
           defaultBucket: mqtt
         secureJsonData:
-          token: homelab-super-secret-token
+          token: $__env{influxdb-token}
 
 resources:
   requests:

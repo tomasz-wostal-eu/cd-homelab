@@ -1,0 +1,25 @@
+---
+# Tailscale Ingress for Grafana
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-homelab
+  namespace: monitoring
+  annotations:
+    tailscale.com/tags: "tag:k8s"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: grafana-homelab.tailc90e09.ts.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - grafana-homelab.tailc90e09.ts.net

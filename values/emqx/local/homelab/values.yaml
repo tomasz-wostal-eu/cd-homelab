@@ -5,10 +5,7 @@ replicaCount: 1
 
 # EMQX Configuration
 emqxConfig:
-  # Dashboard password - change this!
-  # Or use ExternalSecret to inject from Azure Key Vault
-  EMQX_DASHBOARD__DEFAULT_PASSWORD: "changeme123"
-
+  # Dashboard password loaded from secret via envFromSecrets below
   # Logging
   EMQX_LOG__CONSOLE__LEVEL: warning
 
@@ -24,8 +21,10 @@ emqxConfig:
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__QOS: "${qos}"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__RETAIN: "${retain}"
 
-# Load bridge credentials from secret (keys must be EMQX env var names)
-envFromSecret: "emqx-mqtt-bridge-credentials"
+# Load credentials from secrets (keys must be EMQX env var names)
+envFromSecrets:
+  - emqx-mqtt-bridge-credentials
+  - homelab-emqx-dashboard-credentials
 
 # Persistence using NFS StorageClass (RWX)
 persistence:

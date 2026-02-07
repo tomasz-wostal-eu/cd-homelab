@@ -1,0 +1,25 @@
+---
+# Tailscale Ingress for InfluxDB
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: influxdb-homelab
+  namespace: monitoring
+  annotations:
+    tailscale.com/tags: "tag:k8s"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: influxdb-homelab.tailc90e09.ts.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: influxdb-influxdb2
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - influxdb-homelab.tailc90e09.ts.net

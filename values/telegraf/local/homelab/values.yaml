@@ -1,4 +1,8 @@
 # Telegraf: EMQX MQTT → InfluxDB
+
+# Load InfluxDB token from secret
+envFromSecret: "homelab-telegraf-credentials"
+
 config:
   agent:
     interval: "10s"
@@ -23,7 +27,7 @@ config:
     - influxdb_v2:
         urls:
           - "http://influxdb-influxdb2.monitoring.svc.cluster.local:80"
-        token: "homelab-super-secret-token"
+        token: "$INFLUX_TOKEN"
         organization: "homelab"
         bucket: "mqtt"
 
