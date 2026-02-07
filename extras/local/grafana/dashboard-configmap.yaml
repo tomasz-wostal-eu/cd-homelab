@@ -136,7 +136,7 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Big Aquarium",
+          "title": "Big Aquarium Lights",
           "type": "stat"
         },
         {
@@ -176,7 +176,7 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Small Aquarium",
+          "title": "Small Aquarium Lights",
           "type": "stat"
         },
         {
@@ -235,7 +235,7 @@ data:
           "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
           "id": 200,
           "panels": [],
-          "title": "Heaters",
+          "title": "Heater",
           "type": "row"
         },
         {
@@ -277,12 +277,8 @@ data:
             },
             "overrides": [
               {
-                "matcher": { "id": "byName", "options": "Big Aquarium Heater" },
+                "matcher": { "id": "byName", "options": "Heater Oase" },
                 "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
-              },
-              {
-                "matcher": { "id": "byName", "options": "Small Aquarium Heater" },
-                "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
               }
             ]
           },
@@ -295,11 +291,11 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic =~ /zigbee2mqtt\\/.*Heater/)\n  |> filter(fn: (r) => r._field == \"power\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Heater Oase\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
               "refId": "A"
             }
           ],
-          "title": "Heaters Power",
+          "title": "Heater Power",
           "type": "timeseries"
         },
         {
@@ -335,51 +331,11 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Big Aquarium Heater\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Heater Oase\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()",
               "refId": "A"
             }
           ],
-          "title": "Big Aquarium Heater",
-          "type": "stat"
-        },
-        {
-          "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "fieldConfig": {
-            "defaults": {
-              "color": { "mode": "thresholds" },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "orange", "value": 15 },
-                  { "color": "red", "value": 30 }
-                ]
-              },
-              "unit": "watt"
-            },
-            "overrides": []
-          },
-          "gridPos": { "h": 4, "w": 5, "x": 19, "y": 10 },
-          "id": 7,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "targets": [
-            {
-              "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Small Aquarium Heater\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()",
-              "refId": "A"
-            }
-          ],
-          "title": "Small Aquarium Heater",
+          "title": "Heater Oase",
           "type": "stat"
         },
         {
@@ -417,7 +373,7 @@ data:
             },
             "overrides": []
           },
-          "gridPos": { "h": 4, "w": 10, "x": 14, "y": 14 },
+          "gridPos": { "h": 4, "w": 5, "x": 19, "y": 10 },
           "id": 8,
           "options": {
             "legend": { "calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -426,11 +382,11 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic =~ /zigbee2mqtt\\/.*Heater/)\n  |> filter(fn: (r) => r._field == \"energy\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Heater Oase\")\n  |> filter(fn: (r) => r._field == \"energy\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
               "refId": "A"
             }
           ],
-          "title": "Heaters Energy",
+          "title": "Heater Energy",
           "type": "timeseries"
         },
         {
@@ -480,12 +436,16 @@ data:
             },
             "overrides": [
               {
-                "matcher": { "id": "byName", "options": "Big Aquarium Filter" },
+                "matcher": { "id": "byName", "options": "Filter Aquael" },
                 "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }]
               },
               {
-                "matcher": { "id": "byName", "options": "Small Aquarium Filter" },
+                "matcher": { "id": "byName", "options": "Filter Oase" },
                 "properties": [{ "id": "color", "value": { "fixedColor": "dark-purple", "mode": "fixed" } }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Filter Sun Sun" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "light-purple", "mode": "fixed" } }]
               }
             ]
           },
@@ -498,7 +458,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic =~ /zigbee2mqtt\\/.*Filter/)\n  |> filter(fn: (r) => r._field == \"power\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Filter Aquael\" or r.topic == \"zigbee2mqtt/Filter Oase\" or r.topic == \"zigbee2mqtt/Filter Sun Sun\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
               "refId": "A"
             }
           ],
@@ -523,7 +483,7 @@ data:
             },
             "overrides": []
           },
-          "gridPos": { "h": 4, "w": 5, "x": 14, "y": 19 },
+          "gridPos": { "h": 4, "w": 3, "x": 14, "y": 19 },
           "id": 10,
           "options": {
             "colorMode": "value",
@@ -538,11 +498,11 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Big Aquarium Filter\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Filter Aquael\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()",
               "refId": "A"
             }
           ],
-          "title": "Big Aquarium Filter",
+          "title": "Aquael",
           "type": "stat"
         },
         {
@@ -555,15 +515,15 @@ data:
                 "mode": "absolute",
                 "steps": [
                   { "color": "green", "value": null },
-                  { "color": "yellow", "value": 3 },
-                  { "color": "red", "value": 6 }
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 10 }
                 ]
               },
               "unit": "watt"
             },
             "overrides": []
           },
-          "gridPos": { "h": 4, "w": 5, "x": 19, "y": 19 },
+          "gridPos": { "h": 4, "w": 3, "x": 17, "y": 19 },
           "id": 11,
           "options": {
             "colorMode": "value",
@@ -578,11 +538,51 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Small Aquarium Filter\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Filter Oase\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()",
               "refId": "A"
             }
           ],
-          "title": "Small Aquarium Filter",
+          "title": "Oase",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 10 }
+                ]
+              },
+              "unit": "watt"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 4, "x": 20, "y": 19 },
+          "id": 17,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "targets": [
+            {
+              "datasource": { "type": "influxdb", "uid": "influxdb" },
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Filter Sun Sun\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()",
+              "refId": "A"
+            }
+          ],
+          "title": "Sun Sun",
           "type": "stat"
         },
         {
@@ -629,7 +629,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic =~ /zigbee2mqtt\\/.*Filter/)\n  |> filter(fn: (r) => r._field == \"energy\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Filter Aquael\" or r.topic == \"zigbee2mqtt/Filter Oase\" or r.topic == \"zigbee2mqtt/Filter Sun Sun\")\n  |> filter(fn: (r) => r._field == \"energy\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
               "refId": "A"
             }
           ],
@@ -677,7 +677,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic =~ /zigbee2mqtt\\/.*(Lights|Heater|Filter)/)\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()\n  |> group()\n  |> sum()",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Big Aquarium Lights\" or r.topic == \"zigbee2mqtt/Small Aquarium Lights\" or r.topic == \"zigbee2mqtt/Heater Oase\" or r.topic == \"zigbee2mqtt/Filter Aquael\" or r.topic == \"zigbee2mqtt/Filter Oase\" or r.topic == \"zigbee2mqtt/Filter Sun Sun\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> last()\n  |> group()\n  |> sum()",
               "refId": "A"
             }
           ],
@@ -717,7 +717,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic =~ /zigbee2mqtt\\/.*(Lights|Heater|Filter)/)\n  |> filter(fn: (r) => r._field == \"linkquality\")\n  |> mean()",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Big Aquarium Lights\" or r.topic == \"zigbee2mqtt/Small Aquarium Lights\" or r.topic == \"zigbee2mqtt/Heater Oase\" or r.topic == \"zigbee2mqtt/Filter Aquael\" or r.topic == \"zigbee2mqtt/Filter Oase\" or r.topic == \"zigbee2mqtt/Filter Sun Sun\")\n  |> filter(fn: (r) => r._field == \"linkquality\")\n  |> mean()",
               "refId": "A"
             }
           ],
@@ -770,7 +770,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic =~ /zigbee2mqtt\\/.*(Lights|Heater|Filter)/)\n  |> filter(fn: (r) => r._field == \"linkquality\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Big Aquarium Lights\" or r.topic == \"zigbee2mqtt/Small Aquarium Lights\" or r.topic == \"zigbee2mqtt/Heater Oase\" or r.topic == \"zigbee2mqtt/Filter Aquael\" or r.topic == \"zigbee2mqtt/Filter Oase\" or r.topic == \"zigbee2mqtt/Filter Sun Sun\")\n  |> filter(fn: (r) => r._field == \"linkquality\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
               "refId": "A"
             }
           ],
@@ -821,7 +821,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "influxdb", "uid": "influxdb" },
-              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic =~ /zigbee2mqtt\\/.*(Lights|Heater|Filter)/)\n  |> filter(fn: (r) => r._field == \"power\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with device_type: if r.topic =~ /Lights/ then \"Lights\" else if r.topic =~ /Heater/ then \"Heaters\" else \"Filters\" }))\n  |> group(columns: [\"device_type\", \"_time\"])\n  |> sum()\n  |> group(columns: [\"device_type\"])",
+              "query": "from(bucket: \"mqtt\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mqtt_consumer\")\n  |> filter(fn: (r) => r.topic == \"zigbee2mqtt/Big Aquarium Lights\" or r.topic == \"zigbee2mqtt/Small Aquarium Lights\" or r.topic == \"zigbee2mqtt/Heater Oase\" or r.topic == \"zigbee2mqtt/Filter Aquael\" or r.topic == \"zigbee2mqtt/Filter Oase\" or r.topic == \"zigbee2mqtt/Filter Sun Sun\")\n  |> filter(fn: (r) => r._field == \"power\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with device_type: if r.topic =~ /Lights/ then \"Lights\" else if r.topic =~ /Heater/ then \"Heater\" else \"Filters\" }))\n  |> group(columns: [\"device_type\", \"_time\"])\n  |> sum()\n  |> group(columns: [\"device_type\"])",
               "refId": "A"
             }
           ],
