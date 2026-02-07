@@ -1,8 +1,6 @@
 # Grafana homelab
 persistence:
-  enabled: true
-  storageClassName: local-path
-  size: 1Gi
+  enabled: false
 
 admin:
   existingSecret: homelab-grafana-credentials
