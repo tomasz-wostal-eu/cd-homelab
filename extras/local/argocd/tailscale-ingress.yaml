@@ -1,27 +1,27 @@
 ---
-# Tailscale Ingress for EMQX Dashboard
-# Exposes dashboard on Tailscale network with automatic HTTPS
+# Tailscale Ingress for ArgoCD
+# Exposes ArgoCD UI on Tailscale network with automatic HTTPS
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: emqx-homelab
-  namespace: emqx
+  name: argocd-homelab
+  namespace: argocd
   annotations:
     tailscale.com/tags: "tag:k8s"
 spec:
   ingressClassName: tailscale
   rules:
-    - host: emqx-homelab.tailc90e09.ts.net
+    - host: argocd-homelab.tailc90e09.ts.net
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: emqx
+                name: argocd-server
                 port:
-                  number: 18083
+                  number: 80
   # Tailscale provides automatic TLS via MagicDNS
   tls:
     - hosts:
-        - emqx-homelab.tailc90e09.ts.net
+        - argocd-homelab.tailc90e09.ts.net

@@ -823,19 +823,30 @@ bootstrap-secrets: sealed-secrets-install external-secrets-install
     @echo -e "{{green}}Secrets management stack installed.{{nc}}"
     @echo -e "{{yellow}}Next: Create Azure credentials with 'just azure-credentials-create'{{nc}}"
 
-# Full bootstrap: ArgoCD + Secrets management
+# Apply App of Apps (root application that manages all ApplicationSets)
 [group('bootstrap')]
-bootstrap-all: argocd-install bootstrap-secrets
+bootstrap-apps:
+    #!/usr/bin/env bash
+    echo -e "{{green}}Applying App of Apps...{{nc}}"
+    kubectl apply -f bootstrap/argocd-projects.yaml
+    kubectl apply -f bootstrap/root-app.yaml
+    echo -e "{{green}}Root application applied. ArgoCD will now manage all ApplicationSets.{{nc}}"
+    echo -e "{{yellow}}Note: ArgoCD ApplicationSet will take over managing ArgoCD itself.{{nc}}"
+
+# Full bootstrap: ArgoCD + Secrets management + App of Apps
+[group('bootstrap')]
+bootstrap-all: argocd-install bootstrap-secrets bootstrap-apps
     #!/usr/bin/env bash
     echo -e "{{green}}Bootstrap complete!{{nc}}"
     echo ""
     echo "Next steps:"
-    echo "  1. just argocd-port-forward  # Access ArgoCD UI"
-    echo "  2. just argocd-password      # Get admin password"
-    echo "  3. just azure-credentials-create  # Create Azure KV credentials"
-    echo "  4. just azure-credentials-apply   # Apply credentials"
-    echo "  5. just azure-store-apply         # Apply ClusterSecretStore"
-    echo "  6. just argocd-repo-apply         # Configure Git repository"
+    echo "  1. just argocd-password           # Get admin password"
+    echo "  2. just azure-credentials-create  # Create Azure KV credentials"
+    echo "  3. just azure-credentials-apply   # Apply credentials"
+    echo "  4. just azure-store-apply         # Apply ClusterSecretStore"
+    echo "  5. just argocd-repo-apply         # Configure Git repository"
+    echo ""
+    echo "ArgoCD will be available at: https://argocd-homelab.tailc90e09.ts.net"
 
 # Show status of all bootstrap components
 [group('bootstrap')]
