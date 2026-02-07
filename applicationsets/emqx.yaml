@@ -68,11 +68,12 @@ spec:
           jqPathExpressions:
             - .spec.volumeClaimTemplates[]?.apiVersion
             - .spec.volumeClaimTemplates[]?.kind
-        - group: ""
-          kind: Service
+        - group: external-secrets.io
+          kind: ExternalSecret
           jqPathExpressions:
-            - .spec.clusterIP
-            - .spec.clusterIPs
+            - .spec.data[]?.remoteRef.conversionStrategy
+            - .spec.data[]?.remoteRef.decodingStrategy
+            - .spec.data[]?.remoteRef.metadataPolicy
       syncPolicy:
         automated:
           prune: true

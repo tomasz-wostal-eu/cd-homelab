@@ -61,15 +61,12 @@ spec:
         - name: Chart Version
           value: "{{ .helmRevision }}"
       ignoreDifferences:
-        - group: apps
-          kind: Deployment
+        - group: external-secrets.io
+          kind: ExternalSecret
           jqPathExpressions:
-            - .spec.template.spec.containers[]?.resources
-        - group: ""
-          kind: Service
-          jqPathExpressions:
-            - .spec.clusterIP
-            - .spec.clusterIPs
+            - .spec.data[]?.remoteRef.conversionStrategy
+            - .spec.data[]?.remoteRef.decodingStrategy
+            - .spec.data[]?.remoteRef.metadataPolicy
       syncPolicy:
         automated:
           prune: true
