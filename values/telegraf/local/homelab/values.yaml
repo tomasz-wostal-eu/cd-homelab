@@ -42,6 +42,10 @@ config:
         data_format: "json"
         topic_tag: "topic"
 
+# Disable service - no inputs require exposed ports
+service:
+  enabled: false
+
 resources:
   requests:
     cpu: 50m
