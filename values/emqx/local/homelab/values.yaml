@@ -21,10 +21,8 @@ emqxConfig:
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__QOS: "${qos}"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__RETAIN: "${retain}"
 
-# Load credentials from secrets (keys must be EMQX env var names)
-envFromSecrets:
-  - emqx-mqtt-bridge-credentials
-  - homelab-emqx-dashboard-credentials
+# Load credentials from secret (keys must be EMQX env var names)
+envFromSecret: "homelab-emqx-credentials"
 
 # Persistence using NFS StorageClass (RWX)
 persistence:
