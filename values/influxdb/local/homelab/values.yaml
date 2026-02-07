@@ -10,6 +10,16 @@ persistence:
   storageClass: nfs-rwx
   size: 5Gi
 
+# Security context for NFS
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Disable setPermissions init container
+setPermissions:
+  enabled: false
+
 resources:
   requests:
     cpu: 100m

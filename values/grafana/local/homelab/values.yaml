@@ -4,6 +4,16 @@ persistence:
   storageClassName: nfs-rwx
   size: 1Gi
 
+# Security context for NFS
+securityContext:
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+
+# Disable init container (fsGroup handles permissions)
+initChownData:
+  enabled: false
+
 admin:
   existingSecret: homelab-grafana-credentials
   userKey: admin-user
