@@ -60,6 +60,16 @@ spec:
           value: "{{ .type }}"
         - name: Chart Version
           value: "{{ .helmRevision }}"
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jqPathExpressions:
+            - .spec.template.spec.containers[]?.resources
+        - group: ""
+          kind: Service
+          jqPathExpressions:
+            - .spec.clusterIP
+            - .spec.clusterIPs
       syncPolicy:
         automated:
           prune: true

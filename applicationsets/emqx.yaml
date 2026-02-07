@@ -62,6 +62,17 @@ spec:
           value: "{{ .type }}"
         - name: Chart Version
           value: "{{ .helmRevision }}"
+      ignoreDifferences:
+        - group: apps
+          kind: StatefulSet
+          jqPathExpressions:
+            - .spec.volumeClaimTemplates[]?.apiVersion
+            - .spec.volumeClaimTemplates[]?.kind
+        - group: ""
+          kind: Service
+          jqPathExpressions:
+            - .spec.clusterIP
+            - .spec.clusterIPs
       syncPolicy:
         automated:
           prune: true
