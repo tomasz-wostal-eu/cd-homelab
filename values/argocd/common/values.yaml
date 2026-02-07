@@ -1,0 +1,29 @@
+# ArgoCD common configuration
+global:
+  logging:
+    level: info
+
+# Redis HA disabled for homelab
+redis-ha:
+  enabled: false
+
+# Controller settings
+controller:
+  replicas: 1
+
+# Repo server
+repoServer:
+  replicas: 1
+
+# ApplicationSet controller
+applicationSet:
+  enabled: true
+  replicas: 1
+
+# Notifications (disabled)
+notifications:
+  enabled: false
+
+# Dex (disabled - using built-in auth)
+dex:
+  enabled: false

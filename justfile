@@ -565,7 +565,7 @@ argocd-install:
     helm upgrade --install argocd argo/argo-cd \
         --namespace {{argocd_namespace}} \
         --set "server.service.type=ClusterIP" \
-        --set "server.insecure=true" \
+        --set "configs.params.server\\.insecure=true" \
         --set "applicationSet.enabled=true" \
         --timeout 10m \
         --wait
