@@ -5,6 +5,16 @@ persistence:
 adminUser: admin
 adminPassword: admin
 
+# Enable sidecar to auto-load dashboards from ConfigMaps
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folder: /tmp/dashboards
+    provider:
+      foldersFromFilesStructure: false
+
 datasources:
   datasources.yaml:
     apiVersion: 1
