@@ -44,6 +44,8 @@ spec:
                       value: ""
                     - name: image-name
                       value: "forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom"
+                    - name: platforms
+                      value: "linux/amd64"
                     - name: event-type
                       value: "push"
                     - name: pr-number
