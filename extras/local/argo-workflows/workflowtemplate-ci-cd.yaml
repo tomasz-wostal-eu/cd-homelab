@@ -42,9 +42,6 @@ spec:
       # Sender info
       - name: sender-login
         default: ""
-      # Raw event for debug
-      - name: raw-event
-        default: "{}"
 
   # Shared volume for all steps
   volumeClaimTemplates:
