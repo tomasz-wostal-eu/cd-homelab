@@ -48,7 +48,7 @@ spec:
     - metadata:
         name: workspace
       spec:
-        storageClassName: nfs-csi
+        storageClassName: nfs-rwx
         accessModes: ["ReadWriteMany"]
         resources:
           requests:
