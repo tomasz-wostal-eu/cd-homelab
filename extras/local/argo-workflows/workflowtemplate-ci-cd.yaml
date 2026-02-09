@@ -128,10 +128,16 @@ spec:
           IMAGE="{{inputs.parameters.image-name}}"
 
           # Configure registries and storage
-          mkdir -p /etc/containers
-          echo 'unqualified-search-registries = ["docker.io"]' > /etc/containers/registries.conf
-          echo '[storage]' > /etc/containers/storage.conf
-          echo 'driver = "vfs"' >> /etc/containers/storage.conf
+          mkdir -p /etc/containers /var/lib/containers/storage /run/containers/storage
+          cat > /etc/containers/registries.conf << 'EOF'
+          unqualified-search-registries = ["docker.io"]
+          EOF
+          cat > /etc/containers/storage.conf << 'EOF'
+          [storage]
+          driver = "vfs"
+          runroot = "/run/containers/storage"
+          graphroot = "/var/lib/containers/storage"
+          EOF
 
           buildah --storage-driver vfs build \
             --format docker \
