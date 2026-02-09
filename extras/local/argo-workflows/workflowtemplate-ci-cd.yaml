@@ -72,6 +72,10 @@ spec:
           echo "Image: {{inputs.parameters.image-name}}"
           echo ""
 
+          # Install dependencies
+          echo "=== Step 0: Install Dependencies ==="
+          dnf install -y -q openssh-clients git
+
           # Configure SSH
           echo "=== Step 1: Configure SSH ==="
           mkdir -p ~/.ssh
