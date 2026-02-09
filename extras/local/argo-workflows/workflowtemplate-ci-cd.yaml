@@ -168,6 +168,9 @@ spec:
             chmod 600 ~/.ssh/id_rsa
             ssh-keyscan -H forgejo.tailc90e09.ts.net >> ~/.ssh/known_hosts 2>/dev/null
 
+            echo "=== Configuring Git ==="
+            git config --global --add safe.directory /workspace/repo
+
             echo "=== Cloning repository ==="
             cd /workspace
 
