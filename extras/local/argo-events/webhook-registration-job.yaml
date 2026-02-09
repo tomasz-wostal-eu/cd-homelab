@@ -1,0 +1,85 @@
+---
+# Job to register webhook in Forgejo via API
+# This runs once to create the webhook automatically
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: forgejo-webhook-registration
+  namespace: argo-events
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: register-webhook
+          image: curlimages/curl:8.5.0
+          env:
+            - name: FORGEJO_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: argo-events-webhook-credentials
+                  key: forgejo-token
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: argo-events-webhook-credentials
+                  key: webhook-secret
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              FORGEJO_URL="https://forgejo.tailc90e09.ts.net"
+              REPO_OWNER="wostal"
+              REPO_NAME="grafana-k6-custom"
+              WEBHOOK_URL="https://argo-events-homelab.tailc90e09.ts.net/grafana-k6-custom"
+
+              echo "Checking if webhook already exists..."
+              EXISTING=$(curl -s -X GET \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                -H "Content-Type: application/json" \
+                "${FORGEJO_URL}/api/v1/repos/${REPO_OWNER}/${REPO_NAME}/hooks")
+
+              if echo "$EXISTING" | grep -q "${WEBHOOK_URL}"; then
+                echo "Webhook already exists, skipping creation"
+                exit 0
+              fi
+
+              echo "Creating webhook for ${REPO_OWNER}/${REPO_NAME}..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"type\": \"gitea\",
+                  \"config\": {
+                    \"url\": \"${WEBHOOK_URL}\",
+                    \"content_type\": \"json\",
+                    \"secret\": \"${WEBHOOK_SECRET}\"
+                  },
+                  \"events\": [\"push\", \"pull_request\", \"pull_request_sync\"],
+                  \"active\": true
+                }" \
+                "${FORGEJO_URL}/api/v1/repos/${REPO_OWNER}/${REPO_NAME}/hooks")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              echo "Response: $BODY"
+              echo "HTTP Code: $HTTP_CODE"
+
+              if [ "$HTTP_CODE" = "201" ]; then
+                echo "Webhook created successfully!"
+                exit 0
+              elif [ "$HTTP_CODE" = "409" ]; then
+                echo "Webhook already exists (conflict)"
+                exit 0
+              else
+                echo "Failed to create webhook"
+                exit 1
+              fi
