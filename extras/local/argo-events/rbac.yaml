@@ -1,0 +1,46 @@
+---
+# ServiceAccount for EventSource pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argo-events-sa
+  namespace: argo-events
+---
+# Role for EventSource operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-events-role
+  namespace: argo-events
+rules:
+  # EventSource needs to read secrets for webhook auth
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  # EventSource needs to read configmaps
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  # EventSource needs to manage events
+  - apiGroups: ["argoproj.io"]
+    resources: ["eventsources", "sensors", "eventbus"]
+    verbs: ["get", "list", "watch"]
+  # For sensor triggers that create workflows
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows", "workflowtemplates", "cronworkflows"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# RoleBinding for EventSource ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-events-role-binding
+  namespace: argo-events
+subjects:
+  - kind: ServiceAccount
+    name: argo-events-sa
+    namespace: argo-events
+roleRef:
+  kind: Role
+  name: argo-events-role
+  apiGroup: rbac.authorization.k8s.io

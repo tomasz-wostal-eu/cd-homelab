@@ -1,0 +1,17 @@
+---
+# EventBus - NATS-based messaging backbone for Argo Events
+# This is required for EventSources and Sensors to communicate
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: default
+  namespace: argo-events
+spec:
+  nats:
+    native:
+      replicas: 3
+      auth: token
+      persistence:
+        storageClassName: local-path
+        accessMode: ReadWriteOnce
+        volumeSize: 1Gi

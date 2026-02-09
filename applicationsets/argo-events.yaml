@@ -1,0 +1,97 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: argo-events
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: argo-events
+            helmRevision: "2.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: argo-events-{{ .name }}
+      labels:
+        app.kubernetes.io/name: argo-events
+        app.kubernetes.io/instance: argo-events-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "7"
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+    spec:
+      project: apps
+      sources:
+        - repoURL: https://argoproj.github.io/argo-helm
+          chart: argo-events
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: argo-events
+            valueFiles:
+              - $values/values/argo-events/common/values.yaml
+              - $values/values/argo-events/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          path: extras/{{ .region }}/argo-events
+          directory:
+            recurse: true
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .spec.data[]?.remoteRef.conversionStrategy
+            - .spec.data[]?.remoteRef.decodingStrategy
+            - .spec.data[]?.remoteRef.metadataPolicy
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m
+        managedNamespaceMetadata:
+          labels:
+            owner: argocd
+            app.kubernetes.io/part-of: argo-events
+            region: "{{ .region }}"
+            env: "{{ .env }}"
+            istio.io/dataplane-mode: ambient
+          annotations:
+            argocd.argoproj.io/managed-by: "argo-events-{{ .name }}"
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true

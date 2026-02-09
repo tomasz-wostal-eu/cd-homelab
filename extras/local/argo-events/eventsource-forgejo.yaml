@@ -1,0 +1,62 @@
+---
+# EventSource for Forgejo (Gitea-compatible) webhooks
+# Repository: https://forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom
+#
+# Configure webhook in Forgejo:
+#   1. Go to Repository Settings → Webhooks → Add Webhook → Gitea
+#   2. Target URL: http://forgejo-eventsource-svc.argo-events:12000/grafana-k6-custom
+#   3. HTTP Method: POST
+#   4. Content Type: application/json
+#   5. Secret: <same as argo-events-webhook-secret in Azure KV>
+#   6. Trigger On: Push Events, Pull Request Events
+#   7. Active: checked
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: forgejo
+  namespace: argo-events
+spec:
+  eventBusName: default
+  webhook:
+    grafana-k6-custom:
+      # Webhook endpoint configuration
+      port: "12000"
+      endpoint: /grafana-k6-custom
+      method: POST
+
+      # Webhook secret for HMAC-SHA256 signature validation
+      # Forgejo signs payloads with X-Gitea-Signature header
+      authSecret:
+        name: argo-events-webhook-credentials
+        key: webhook-secret
+
+      # Event filtering - accept only specific event types
+      # Forgejo sends event type in X-Gitea-Event header
+      filter:
+        expression: |
+          (
+            headers["X-Gitea-Event"] == "push" ||
+            headers["X-Gitea-Event"] == "pull_request" ||
+            headers["X-Gitea-Event"] == "pull_request_sync"
+          )
+---
+# Service for the EventSource webhook endpoint
+# This is auto-created by Argo Events, but we define it explicitly
+# for clarity and to ensure proper configuration
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo-eventsource-svc
+  namespace: argo-events
+  labels:
+    eventsource-name: forgejo
+spec:
+  type: ClusterIP
+  ports:
+    - port: 12000
+      targetPort: 12000
+      protocol: TCP
+      name: webhook
+  selector:
+    eventsource-name: forgejo
+    owner-name: forgejo
