@@ -63,14 +63,20 @@ spec:
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.ref
+                useRawData: false
+                value: "refs/heads/main"
               dest: spec.arguments.parameters.3.value
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.after
+                useRawData: false
+                value: ""
               dest: spec.arguments.parameters.4.value
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.sender.login
+                useRawData: false
+                value: ""
               dest: spec.arguments.parameters.10.value
       retryStrategy:
         steps: 3
@@ -131,22 +137,32 @@ spec:
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.pull_request.head.ref
+                useRawData: false
+                value: "main"
               dest: spec.arguments.parameters.2.value
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.pull_request.head.sha
+                useRawData: false
+                value: ""
               dest: spec.arguments.parameters.4.value
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.pull_request.number
+                useRawData: false
+                value: ""
               dest: spec.arguments.parameters.8.value
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.action
+                useRawData: false
+                value: ""
               dest: spec.arguments.parameters.9.value
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.sender.login
+                useRawData: false
+                value: ""
               dest: spec.arguments.parameters.10.value
       retryStrategy:
         steps: 3
