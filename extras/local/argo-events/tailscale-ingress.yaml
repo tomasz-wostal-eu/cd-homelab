@@ -1,0 +1,30 @@
+---
+# Tailscale Ingress for Argo Events webhook endpoint
+# Exposes EventSource on Tailscale network with automatic HTTPS
+#
+# Forgejo webhook URL:
+#   https://argo-events-homelab.tailc90e09.ts.net/grafana-k6-custom
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argo-events-homelab
+  namespace: argo-events
+  annotations:
+    tailscale.com/tags: "tag:k8s"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: argo-events-homelab.tailc90e09.ts.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgejo-eventsource-svc
+                port:
+                  number: 12000
+  # Tailscale provides automatic TLS via MagicDNS
+  tls:
+    - hosts:
+        - argo-events-homelab.tailc90e09.ts.net
