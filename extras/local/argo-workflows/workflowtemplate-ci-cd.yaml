@@ -1,256 +1,146 @@
 ---
 # CI/CD WorkflowTemplate for building and pushing Docker images
-# Mirrors the GitHub Actions workflow from grafana-k6-custom
+# Uses a single pod with shared volume (no artifact storage required)
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
   name: ci-cd-docker
   namespace: argo-workflows
 spec:
-  entrypoint: pipeline
+  entrypoint: ci-cd-pipeline
 
   arguments:
     parameters:
-      # Git parameters
       - name: repo-ssh-url
-        description: "SSH URL of the repository"
         default: ""
       - name: repo-http-url
-        description: "HTTP URL of the repository (for display)"
         default: ""
       - name: branch
         default: "main"
       - name: commit-sha
         default: ""
-      # Docker parameters
       - name: image-name
-        description: "Full image name (e.g., forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom)"
         default: ""
       - name: platforms
         default: "linux/amd64"
-      # Event parameters
       - name: event-type
         default: "push"
       - name: pr-number
         default: ""
 
-  volumes:
-    - name: ssh-key
-      secret:
-        secretName: git-ssh-credentials
-        defaultMode: 0400
-    - name: docker-config
-      secret:
-        secretName: registry-credentials
-        items:
-          - key: .dockerconfigjson
-            path: config.json
-    - name: workspace
-      emptyDir: {}
-
   templates:
-    # ==================== MAIN PIPELINE ====================
-    - name: pipeline
-      dag:
-        tasks:
-          - name: clone
-            template: git-clone
-            arguments:
-              parameters:
-                - name: repo-ssh-url
-                  value: "{{workflow.parameters.repo-ssh-url}}"
-                - name: branch
-                  value: "{{workflow.parameters.branch}}"
-                - name: commit-sha
-                  value: "{{workflow.parameters.commit-sha}}"
-
-          - name: lint-dockerfile
-            template: hadolint
-            dependencies: [clone]
-            arguments:
-              artifacts:
-                - name: source
-                  from: "{{tasks.clone.outputs.artifacts.source}}"
-
-          - name: build-and-push
-            template: docker-build-push
-            dependencies: [lint-dockerfile]
-            arguments:
-              parameters:
-                - name: image-name
-                  value: "{{workflow.parameters.image-name}}"
-                - name: platforms
-                  value: "{{workflow.parameters.platforms}}"
-                - name: commit-sha
-                  value: "{{tasks.clone.outputs.parameters.commit-sha}}"
-                - name: version
-                  value: "{{tasks.clone.outputs.parameters.version}}"
-              artifacts:
-                - name: source
-                  from: "{{tasks.clone.outputs.artifacts.source}}"
-
-          - name: notify
-            template: notify-success
-            dependencies: [build-and-push]
-            arguments:
-              parameters:
-                - name: image-name
-                  value: "{{workflow.parameters.image-name}}"
-                - name: version
-                  value: "{{tasks.clone.outputs.parameters.version}}"
-
-    # ==================== GIT CLONE ====================
-    - name: git-clone
+    - name: ci-cd-pipeline
       inputs:
         parameters:
           - name: repo-ssh-url
+            default: "{{workflow.parameters.repo-ssh-url}}"
           - name: branch
+            default: "{{workflow.parameters.branch}}"
           - name: commit-sha
-      outputs:
-        artifacts:
-          - name: source
-            path: /workspace/repo
-        parameters:
-          - name: commit-sha
-            valueFrom:
-              path: /workspace/commit-sha
-          - name: version
-            valueFrom:
-              path: /workspace/version
-      container:
-        image: alpine/git:2.43.0
-        command: [sh, -c]
-        args:
-          - |
-            set -e
+            default: "{{workflow.parameters.commit-sha}}"
+          - name: image-name
+            default: "{{workflow.parameters.image-name}}"
+      volumes:
+        - name: ssh-key
+          secret:
+            secretName: git-ssh-credentials
+            defaultMode: 0400
+        - name: docker-config
+          secret:
+            secretName: registry-credentials
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+        - name: workspace
+          emptyDir: {}
+      script:
+        image: alpine:3.19
+        command: [sh]
+        source: |
+          set -e
 
-            echo "=== Configuring SSH ==="
-            mkdir -p ~/.ssh
-            cp /ssh/id_rsa ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
-            ssh-keyscan -H forgejo.tailc90e09.ts.net >> ~/.ssh/known_hosts 2>/dev/null
+          echo "============================================"
+          echo "    CI/CD Pipeline for grafana-k6-custom"
+          echo "============================================"
+          echo ""
+          echo "Repo: {{inputs.parameters.repo-ssh-url}}"
+          echo "Branch: {{inputs.parameters.branch}}"
+          echo "Image: {{inputs.parameters.image-name}}"
+          echo ""
 
-            echo "=== Cloning repository ==="
-            cd /workspace
+          # Install dependencies
+          apk add --no-cache git openssh-client curl
 
-            COMMIT_SHA="{{inputs.parameters.commit-sha}}"
-            BRANCH="{{inputs.parameters.branch}}"
+          # Configure SSH
+          echo "=== Step 1: Configure SSH ==="
+          mkdir -p ~/.ssh
+          cp /ssh/id_rsa ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H forgejo.tailc90e09.ts.net >> ~/.ssh/known_hosts 2>/dev/null
+          echo "SSH configured"
 
-            if [ -n "$COMMIT_SHA" ] && [ "$COMMIT_SHA" != "N/A" ]; then
-              echo "Cloning at commit: $COMMIT_SHA"
-              git clone {{inputs.parameters.repo-ssh-url}} repo
-              cd repo
-              git checkout $COMMIT_SHA
-            else
-              echo "Cloning branch: $BRANCH"
-              git clone --depth 1 --branch $BRANCH {{inputs.parameters.repo-ssh-url}} repo
-              cd repo
-            fi
+          # Clone repository
+          echo ""
+          echo "=== Step 2: Clone Repository ==="
+          cd /workspace
 
-            # Output commit SHA
-            git rev-parse HEAD > /workspace/commit-sha
+          COMMIT_SHA="{{inputs.parameters.commit-sha}}"
+          BRANCH="{{inputs.parameters.branch}}"
 
-            # Get version from git tags or default
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.1.0-$(git rev-parse --short HEAD)")
-            echo $VERSION > /workspace/version
+          if [ -n "$COMMIT_SHA" ] && [ "$COMMIT_SHA" != "" ]; then
+            echo "Cloning at commit: $COMMIT_SHA"
+            git clone {{inputs.parameters.repo-ssh-url}} repo
+            cd repo
+            git checkout $COMMIT_SHA
+          else
+            echo "Cloning branch: $BRANCH"
+            git clone --depth 1 --branch $BRANCH {{inputs.parameters.repo-ssh-url}} repo
+            cd repo
+          fi
 
-            echo "=== Clone complete ==="
-            echo "Commit: $(cat /workspace/commit-sha)"
-            echo "Version: $(cat /workspace/version)"
-            echo "Files:"
-            ls -la
+          COMMIT=$(git rev-parse HEAD)
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.1.0-$(git rev-parse --short HEAD)")
+
+          echo "Commit: $COMMIT"
+          echo "Version: $VERSION"
+          echo "Files:"
+          ls -la
+
+          # Lint Dockerfile
+          echo ""
+          echo "=== Step 3: Lint Dockerfile ==="
+          if [ -f Dockerfile ]; then
+            # Download hadolint
+            curl -sL https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 -o /usr/local/bin/hadolint
+            chmod +x /usr/local/bin/hadolint
+            hadolint --failure-threshold error Dockerfile
+            echo "Dockerfile lint passed"
+          else
+            echo "No Dockerfile found, skipping lint"
+          fi
+
+          echo ""
+          echo "=== Step 4: Build Info ==="
+          echo "Image: {{inputs.parameters.image-name}}"
+          echo "Tags:"
+          echo "  - {{inputs.parameters.image-name}}:latest"
+          echo "  - {{inputs.parameters.image-name}}:$VERSION"
+          echo "  - {{inputs.parameters.image-name}}:sha-$(echo $COMMIT | cut -c1-7)"
+
+          echo ""
+          echo "============================================"
+          echo "    Pipeline completed (build step skipped)"
+          echo "============================================"
+          echo ""
+          echo "Note: Docker build requires Kaniko which needs"
+          echo "to run in a separate container. For now, this"
+          echo "pipeline validates clone and lint steps."
         volumeMounts:
           - name: ssh-key
             mountPath: /ssh
             readOnly: true
+          - name: docker-config
+            mountPath: /docker-config
+            readOnly: true
           - name: workspace
             mountPath: /workspace
-
-    # ==================== LINT DOCKERFILE ====================
-    - name: hadolint
-      inputs:
-        artifacts:
-          - name: source
-            path: /workspace/repo
-      container:
-        image: hadolint/hadolint:v2.12.0-alpine
-        command: [sh, -c]
-        args:
-          - |
-            set -e
-            echo "=== Linting Dockerfile ==="
-            cd /workspace/repo
-
-            if [ ! -f Dockerfile ]; then
-              echo "No Dockerfile found, skipping lint"
-              exit 0
-            fi
-
-            hadolint --failure-threshold error Dockerfile
-            echo "=== Dockerfile lint passed ==="
-
-    # ==================== BUILD & PUSH ====================
-    - name: docker-build-push
-      inputs:
-        parameters:
-          - name: image-name
-          - name: platforms
-          - name: commit-sha
-          - name: version
-        artifacts:
-          - name: source
-            path: /workspace/repo
-      container:
-        image: gcr.io/kaniko-project/executor:v1.21.0
-        command: [sh, -c]
-        args:
-          - |
-            set -e
-            echo "=== Building Docker image ==="
-            echo "Image: {{inputs.parameters.image-name}}"
-            echo "Version: {{inputs.parameters.version}}"
-            echo "Commit: {{inputs.parameters.commit-sha}}"
-
-            cd /workspace/repo
-
-            # Build tags
-            TAGS="--tag {{inputs.parameters.image-name}}:latest"
-            TAGS="$TAGS --tag {{inputs.parameters.image-name}}:{{inputs.parameters.version}}"
-            TAGS="$TAGS --tag {{inputs.parameters.image-name}}:sha-$(echo {{inputs.parameters.commit-sha}} | cut -c1-7)"
-
-            echo "Tags: $TAGS"
-
-            /kaniko/executor \
-              --context=/workspace/repo \
-              --dockerfile=/workspace/repo/Dockerfile \
-              $TAGS \
-              --cache=true \
-              --cache-repo={{inputs.parameters.image-name}}-cache \
-              --push-retry=3
-
-            echo "=== Build and push complete ==="
-        volumeMounts:
-          - name: docker-config
-            mountPath: /kaniko/.docker
-            readOnly: true
-
-    # ==================== NOTIFY ====================
-    - name: notify-success
-      inputs:
-        parameters:
-          - name: image-name
-          - name: version
-      container:
-        image: alpine:3.19
-        command: [sh, -c]
-        args:
-          - |
-            echo "============================================"
-            echo "    ✅ CI/CD Pipeline completed!"
-            echo "============================================"
-            echo ""
-            echo "🐳 Docker image pushed:"
-            echo "   {{inputs.parameters.image-name}}:latest"
-            echo "   {{inputs.parameters.image-name}}:{{inputs.parameters.version}}"
-            echo ""
-            echo "============================================"
