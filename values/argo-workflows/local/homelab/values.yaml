@@ -1,1 +1,8 @@
 # Argo Workflows homelab config
+
+server:
+  # Disable authentication
+  authModes:
+    - server
+  extraArgs:
+    - --auth-mode=server

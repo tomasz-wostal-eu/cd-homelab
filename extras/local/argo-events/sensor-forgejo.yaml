@@ -1,6 +1,6 @@
 ---
 # Sensor for Forgejo webhook events
-# Parses webhook payload and triggers a workflow to display all fields
+# Triggers CI/CD pipeline on push and pull_request events
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
@@ -16,7 +16,7 @@ spec:
       eventName: grafana-k6-custom
   triggers:
     - template:
-        name: debug-workflow
+        name: ci-cd-pipeline
         k8s:
           operation: create
           source:
@@ -24,210 +24,56 @@ spec:
               apiVersion: argoproj.io/v1alpha1
               kind: Workflow
               metadata:
-                generateName: forgejo-debug-
+                generateName: grafana-k6-custom-
                 namespace: argo-workflows
+                labels:
+                  workflows.argoproj.io/workflow-template: ci-cd-docker
               spec:
                 serviceAccountName: argo-workflows-sa
-                entrypoint: debug
+                workflowTemplateRef:
+                  name: ci-cd-docker
                 arguments:
                   parameters:
-                    # Event metadata
-                    - name: event-type
-                    - name: delivery-id
-                    # Repository info
-                    - name: repo-name
-                    - name: repo-full-name
-                    - name: repo-url
-                    - name: repo-clone-url
-                    - name: repo-default-branch
-                    # Sender info
-                    - name: sender-login
-                    - name: sender-email
-                    # Ref info (for push events)
-                    - name: ref
-                    - name: before
-                    - name: after
-                    # Commit info
+                    - name: repo-ssh-url
+                      value: "git@forgejo.tailc90e09.ts.net:wostal/grafana-k6-custom.git"
+                    - name: repo-http-url
+                      value: "https://forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom"
+                    - name: branch
                     - name: commit-sha
-                    - name: commit-message
-                    # PR info (for pull_request events)
+                    - name: image-name
+                      value: "forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom"
+                    - name: event-type
                     - name: pr-number
-                    - name: pr-title
-                    - name: pr-action
-                    - name: pr-head-ref
-                    - name: pr-base-ref
-                    # Raw payload for debugging
-                    - name: raw-payload
-                templates:
-                  - name: debug
-                    inputs:
-                      parameters:
-                        - name: event-type
-                        - name: delivery-id
-                        - name: repo-name
-                        - name: repo-full-name
-                        - name: repo-url
-                        - name: repo-clone-url
-                        - name: repo-default-branch
-                        - name: sender-login
-                        - name: sender-email
-                        - name: ref
-                        - name: before
-                        - name: after
-                        - name: commit-sha
-                        - name: commit-message
-                        - name: pr-number
-                        - name: pr-title
-                        - name: pr-action
-                        - name: pr-head-ref
-                        - name: pr-base-ref
-                        - name: raw-payload
-                    container:
-                      image: alpine:3.19
-                      command: [sh, -c]
-                      args:
-                        - |
-                          echo "============================================"
-                          echo "       FORGEJO WEBHOOK EVENT RECEIVED       "
-                          echo "============================================"
-                          echo ""
-                          echo "=== EVENT METADATA ==="
-                          echo "Event Type:     {{inputs.parameters.event-type}}"
-                          echo "Delivery ID:    {{inputs.parameters.delivery-id}}"
-                          echo ""
-                          echo "=== REPOSITORY INFO ==="
-                          echo "Name:           {{inputs.parameters.repo-name}}"
-                          echo "Full Name:      {{inputs.parameters.repo-full-name}}"
-                          echo "URL:            {{inputs.parameters.repo-url}}"
-                          echo "Clone URL:      {{inputs.parameters.repo-clone-url}}"
-                          echo "Default Branch: {{inputs.parameters.repo-default-branch}}"
-                          echo ""
-                          echo "=== SENDER INFO ==="
-                          echo "Login:          {{inputs.parameters.sender-login}}"
-                          echo "Email:          {{inputs.parameters.sender-email}}"
-                          echo ""
-                          echo "=== REF INFO (Push) ==="
-                          echo "Ref:            {{inputs.parameters.ref}}"
-                          echo "Before:         {{inputs.parameters.before}}"
-                          echo "After:          {{inputs.parameters.after}}"
-                          echo ""
-                          echo "=== COMMIT INFO ==="
-                          echo "SHA:            {{inputs.parameters.commit-sha}}"
-                          echo "Message:        {{inputs.parameters.commit-message}}"
-                          echo ""
-                          echo "=== PR INFO (Pull Request) ==="
-                          echo "PR Number:      {{inputs.parameters.pr-number}}"
-                          echo "PR Title:       {{inputs.parameters.pr-title}}"
-                          echo "PR Action:      {{inputs.parameters.pr-action}}"
-                          echo "Head Ref:       {{inputs.parameters.pr-head-ref}}"
-                          echo "Base Ref:       {{inputs.parameters.pr-base-ref}}"
-                          echo ""
-                          echo "=== RAW PAYLOAD ==="
-                          echo '{{inputs.parameters.raw-payload}}' | head -c 2000
-                          echo ""
-                          echo "============================================"
           parameters:
-            # Event metadata from headers
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: header.X-Forgejo-Event
-              dest: spec.arguments.parameters.0.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: header.X-Forgejo-Delivery
-              dest: spec.arguments.parameters.1.value
-            # Repository info
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.repository.name
-                value: "N/A"
-              dest: spec.arguments.parameters.2.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.repository.full_name
-                value: "N/A"
-              dest: spec.arguments.parameters.3.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.repository.html_url
-                value: "N/A"
-              dest: spec.arguments.parameters.4.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.repository.clone_url
-                value: "N/A"
-              dest: spec.arguments.parameters.5.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.repository.default_branch
-                value: "N/A"
-              dest: spec.arguments.parameters.6.value
-            # Sender info
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.sender.login
-                value: "N/A"
-              dest: spec.arguments.parameters.7.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.sender.email
-                value: "N/A"
-              dest: spec.arguments.parameters.8.value
-            # Ref info (push events)
+            # Branch - from ref for push, from PR head for pull_request
             - src:
                 dependencyName: forgejo-webhook
                 dataKey: body.ref
-                value: "N/A"
-              dest: spec.arguments.parameters.9.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.before
-                value: "N/A"
-              dest: spec.arguments.parameters.10.value
+                value: "main"
+              dest: spec.arguments.parameters.2.value
+              operation: overwrite
+            # Commit SHA
             - src:
                 dependencyName: forgejo-webhook
                 dataKey: body.after
-                value: "N/A"
-              dest: spec.arguments.parameters.11.value
-            # Commit info - try head_commit first, fall back to after
+              dest: spec.arguments.parameters.3.value
+              operation: overwrite
+            # Fallback commit SHA for PR events
             - src:
                 dependencyName: forgejo-webhook
-                dataKey: body.head_commit.id
-                value: "N/A"
-              dest: spec.arguments.parameters.12.value
+                dataKey: body.pull_request.head.sha
+              dest: spec.arguments.parameters.3.value
+              operation: overwrite
+            # Event type
             - src:
                 dependencyName: forgejo-webhook
-                dataKey: body.head_commit.message
-                value: "N/A"
-              dest: spec.arguments.parameters.13.value
-            # PR info (pull_request events)
+                dataKey: header.X-Forgejo-Event
+              dest: spec.arguments.parameters.5.value
+              operation: overwrite
+            # PR number (if applicable)
             - src:
                 dependencyName: forgejo-webhook
                 dataKey: body.pull_request.number
-                value: "N/A"
-              dest: spec.arguments.parameters.14.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.pull_request.title
-                value: "N/A"
-              dest: spec.arguments.parameters.15.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.action
-                value: "N/A"
-              dest: spec.arguments.parameters.16.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.pull_request.head.ref
-                value: "N/A"
-              dest: spec.arguments.parameters.17.value
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.pull_request.base.ref
-                value: "N/A"
-              dest: spec.arguments.parameters.18.value
-            # Raw payload
-            - src:
-                dependencyName: forgejo-webhook
-                dataTemplate: "{{ toJson .Input }}"
-              dest: spec.arguments.parameters.19.value
+                value: ""
+              dest: spec.arguments.parameters.6.value
+              operation: overwrite

@@ -1,0 +1,82 @@
+---
+# Reusable WorkflowTemplate for cloning git repositories via SSH
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: git-clone
+  namespace: argo-workflows
+spec:
+  arguments:
+    parameters:
+      - name: repo-url
+        description: "SSH URL of the repository (e.g., git@forgejo.tailc90e09.ts.net:wostal/grafana-k6-custom.git)"
+      - name: branch
+        default: "main"
+        description: "Branch, tag, or commit SHA to checkout"
+      - name: repo-name
+        default: "repo"
+        description: "Directory name for cloned repo"
+
+  volumes:
+    - name: ssh-key
+      secret:
+        secretName: git-ssh-credentials
+        defaultMode: 0400
+    - name: workspace
+      emptyDir: {}
+
+  templates:
+    - name: clone
+      inputs:
+        parameters:
+          - name: repo-url
+          - name: branch
+          - name: repo-name
+      outputs:
+        artifacts:
+          - name: source
+            path: /workspace/{{inputs.parameters.repo-name}}
+      volumes:
+        - name: ssh-key
+          secret:
+            secretName: git-ssh-credentials
+            defaultMode: 0400
+      container:
+        image: alpine/git:2.43.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+
+            echo "=== Configuring SSH ==="
+            mkdir -p ~/.ssh
+            cp /ssh/id_rsa ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+
+            # Add Forgejo host to known_hosts
+            ssh-keyscan -H forgejo.tailc90e09.ts.net >> ~/.ssh/known_hosts 2>/dev/null
+
+            echo "=== Cloning repository ==="
+            echo "Repo: {{inputs.parameters.repo-url}}"
+            echo "Branch: {{inputs.parameters.branch}}"
+
+            cd /workspace
+            git clone --depth 1 --branch {{inputs.parameters.branch}} \
+              {{inputs.parameters.repo-url}} {{inputs.parameters.repo-name}}
+
+            cd {{inputs.parameters.repo-name}}
+
+            echo "=== Clone complete ==="
+            echo "Commit: $(git rev-parse HEAD)"
+            echo "Author: $(git log -1 --format='%an <%ae>')"
+            echo "Message: $(git log -1 --format='%s')"
+            echo ""
+            echo "=== Files ==="
+            ls -la
+        volumeMounts:
+          - name: ssh-key
+            mountPath: /ssh
+            readOnly: true
+          - name: workspace
+            mountPath: /workspace
+        workingDir: /workspace
