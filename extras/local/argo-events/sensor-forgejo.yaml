@@ -1,6 +1,6 @@
 ---
 # Sensor for Forgejo webhook events
-# Separate triggers for push and pull_request events
+# Single dependency, trigger-level filtering for push vs pull_request
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
@@ -11,29 +11,17 @@ spec:
   template:
     serviceAccountName: argo-events-sa
   dependencies:
-    - name: forgejo-push
+    - name: forgejo-event
       eventSourceName: forgejo
       eventName: grafana-k6-custom
-      filters:
-        data:
-          - path: header.X-Forgejo-Event.0
-            type: string
-            value:
-              - "push"
-    - name: forgejo-pr
-      eventSourceName: forgejo
-      eventName: grafana-k6-custom
-      filters:
-        data:
-          - path: header.X-Forgejo-Event.0
-            type: string
-            value:
-              - "pull_request"
   triggers:
     # ==================== PUSH TRIGGER ====================
     - template:
         name: push-pipeline
-        conditions: "forgejo-push"
+        conditions: "forgejo-event"
+        conditionsReset:
+          - byTime:
+              cron: "* * * * *"
         k8s:
           operation: create
           source:
@@ -73,22 +61,35 @@ spec:
                       value: ""
           parameters:
             - src:
-                dependencyName: forgejo-push
+                dependencyName: forgejo-event
                 dataKey: body.ref
               dest: spec.arguments.parameters.3.value
             - src:
-                dependencyName: forgejo-push
+                dependencyName: forgejo-event
                 dataKey: body.after
               dest: spec.arguments.parameters.4.value
             - src:
-                dependencyName: forgejo-push
+                dependencyName: forgejo-event
                 dataKey: body.sender.login
               dest: spec.arguments.parameters.11.value
+      retryStrategy:
+        steps: 3
+      # Only trigger for push events
+      filtersLogicalOperator: "and"
+      filters:
+        data:
+          - path: header.X-Forgejo-Event
+            type: string
+            value:
+              - "push"
 
     # ==================== PR TRIGGER ====================
     - template:
         name: pr-pipeline
-        conditions: "forgejo-pr"
+        conditions: "forgejo-event"
+        conditionsReset:
+          - byTime:
+              cron: "* * * * *"
         k8s:
           operation: create
           source:
@@ -128,22 +129,32 @@ spec:
                       value: ""
           parameters:
             - src:
-                dependencyName: forgejo-pr
+                dependencyName: forgejo-event
                 dataKey: body.pull_request.head.ref
               dest: spec.arguments.parameters.2.value
             - src:
-                dependencyName: forgejo-pr
+                dependencyName: forgejo-event
                 dataKey: body.pull_request.head.sha
               dest: spec.arguments.parameters.4.value
             - src:
-                dependencyName: forgejo-pr
+                dependencyName: forgejo-event
                 dataKey: body.pull_request.number
               dest: spec.arguments.parameters.9.value
             - src:
-                dependencyName: forgejo-pr
+                dependencyName: forgejo-event
                 dataKey: body.action
               dest: spec.arguments.parameters.10.value
             - src:
-                dependencyName: forgejo-pr
+                dependencyName: forgejo-event
                 dataKey: body.sender.login
               dest: spec.arguments.parameters.11.value
+      retryStrategy:
+        steps: 3
+      # Only trigger for pull_request events
+      filtersLogicalOperator: "and"
+      filters:
+        data:
+          - path: header.X-Forgejo-Event
+            type: string
+            value:
+              - "pull_request"
