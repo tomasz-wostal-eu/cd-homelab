@@ -1,188 +1,384 @@
 ---
-# CI/CD WorkflowTemplate for building and pushing Docker images
-# Uses a single pod with shared volume (no artifact storage required)
+# CI/CD WorkflowTemplate for grafana-k6-custom
+# Flow:
+#   1. Debug - display all webhook fields
+#   2. Clone - clone repository via SSH
+#   3. Lint - validate Dockerfile
+#   4. Build - build image (always)
+#   5. Push - push to registry (only on push to main)
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
   name: ci-cd-docker
   namespace: argo-workflows
 spec:
-  entrypoint: ci-cd-pipeline
+  entrypoint: pipeline
 
   arguments:
     parameters:
+      # Git parameters
       - name: repo-ssh-url
         default: ""
       - name: repo-http-url
         default: ""
       - name: branch
         default: "main"
+      - name: ref
+        default: "refs/heads/main"
       - name: commit-sha
         default: ""
+      # Docker parameters
       - name: image-name
         default: ""
       - name: platforms
         default: "linux/amd64"
+      # Event parameters
       - name: event-type
         default: "push"
       - name: pr-number
         default: ""
+      - name: pr-action
+        default: ""
+      # Sender info
+      - name: sender-login
+        default: ""
+      # Raw event for debug
+      - name: raw-event
+        default: "{}"
+
+  # Shared volume for all steps
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
 
   templates:
-    - name: ci-cd-pipeline
-      inputs:
-        parameters:
-          - name: repo-ssh-url
-            default: "{{workflow.parameters.repo-ssh-url}}"
-          - name: branch
-            default: "{{workflow.parameters.branch}}"
-          - name: commit-sha
-            default: "{{workflow.parameters.commit-sha}}"
-          - name: image-name
-            default: "{{workflow.parameters.image-name}}"
+    # ==================== MAIN PIPELINE ====================
+    - name: pipeline
+      dag:
+        tasks:
+          - name: debug
+            template: debug-event
+
+          - name: clone
+            template: git-clone
+            dependencies: [debug]
+
+          - name: lint
+            template: hadolint
+            dependencies: [clone]
+
+          - name: build
+            template: buildah-build
+            dependencies: [lint]
+
+          # Push only on push to main/master
+          - name: push
+            template: buildah-push
+            dependencies: [build]
+            when: "{{workflow.parameters.event-type}} == 'push' && ({{workflow.parameters.ref}} == 'refs/heads/main' || {{workflow.parameters.ref}} == 'refs/heads/master')"
+
+          - name: notify-pr
+            template: notify
+            dependencies: [build]
+            when: "{{workflow.parameters.event-type}} == 'pull_request'"
+            arguments:
+              parameters:
+                - name: message
+                  value: "✅ PR #{{workflow.parameters.pr-number}} build successful (no push)"
+
+          - name: notify-push
+            template: notify
+            dependencies: [push]
+            when: "{{workflow.parameters.event-type}} == 'push'"
+            arguments:
+              parameters:
+                - name: message
+                  value: "✅ Push to {{workflow.parameters.ref}} - images pushed to registry"
+
+    # ==================== DEBUG ====================
+    - name: debug-event
+      container:
+        image: alpine:3.19
+        command: [sh, -c]
+        args:
+          - |
+            echo "============================================"
+            echo "       FORGEJO WEBHOOK EVENT RECEIVED       "
+            echo "============================================"
+            echo ""
+            echo "=== EVENT METADATA ==="
+            echo "Event Type:     {{workflow.parameters.event-type}}"
+            echo "Ref:            {{workflow.parameters.ref}}"
+            echo "Branch:         {{workflow.parameters.branch}}"
+            echo ""
+            echo "=== REPOSITORY INFO ==="
+            echo "SSH URL:        {{workflow.parameters.repo-ssh-url}}"
+            echo "HTTP URL:       {{workflow.parameters.repo-http-url}}"
+            echo ""
+            echo "=== COMMIT INFO ==="
+            echo "Commit SHA:     {{workflow.parameters.commit-sha}}"
+            echo ""
+            echo "=== SENDER INFO ==="
+            echo "Login:          {{workflow.parameters.sender-login}}"
+            echo ""
+            echo "=== PR INFO ==="
+            echo "PR Number:      {{workflow.parameters.pr-number}}"
+            echo "PR Action:      {{workflow.parameters.pr-action}}"
+            echo ""
+            echo "=== BUILD CONFIG ==="
+            echo "Image:          {{workflow.parameters.image-name}}"
+            echo "Platforms:      {{workflow.parameters.platforms}}"
+            echo ""
+            echo "=== PIPELINE DECISION ==="
+            if [ "{{workflow.parameters.event-type}}" = "push" ]; then
+              echo "Event: PUSH"
+              if [ "{{workflow.parameters.ref}}" = "refs/heads/main" ] || [ "{{workflow.parameters.ref}}" = "refs/heads/master" ]; then
+                echo "Branch: main/master -> Will BUILD and PUSH"
+              else
+                echo "Branch: other -> Will BUILD only (no push)"
+              fi
+            else
+              echo "Event: PULL REQUEST #{{workflow.parameters.pr-number}}"
+              echo "Action: {{workflow.parameters.pr-action}}"
+              echo "-> Will BUILD only (no push)"
+            fi
+            echo ""
+            echo "============================================"
+
+    # ==================== GIT CLONE ====================
+    - name: git-clone
       volumes:
         - name: ssh-key
           secret:
             secretName: git-ssh-credentials
             defaultMode: 0400
+      container:
+        image: alpine/git:2.43.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+
+            echo "=== Configuring SSH ==="
+            mkdir -p ~/.ssh
+            cp /ssh/id_rsa ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H forgejo.tailc90e09.ts.net >> ~/.ssh/known_hosts 2>/dev/null
+
+            echo "=== Cloning repository ==="
+            cd /workspace
+
+            COMMIT_SHA="{{workflow.parameters.commit-sha}}"
+            BRANCH="{{workflow.parameters.branch}}"
+
+            if [ -n "$COMMIT_SHA" ] && [ "$COMMIT_SHA" != "" ]; then
+              echo "Cloning at commit: $COMMIT_SHA"
+              git clone {{workflow.parameters.repo-ssh-url}} repo
+              cd repo
+              git checkout $COMMIT_SHA
+            else
+              echo "Cloning branch: $BRANCH"
+              git clone --depth 1 --branch $BRANCH {{workflow.parameters.repo-ssh-url}} repo
+              cd repo
+            fi
+
+            # Save metadata
+            git rev-parse HEAD > /workspace/commit-sha
+            git rev-parse --short HEAD > /workspace/short-sha
+            git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' > /workspace/version || echo "0.1.0-$(cat /workspace/short-sha)" > /workspace/version
+
+            echo ""
+            echo "=== Clone complete ==="
+            echo "Commit: $(cat /workspace/commit-sha)"
+            echo "Short:  $(cat /workspace/short-sha)"
+            echo "Version: $(cat /workspace/version)"
+            echo ""
+            echo "Files:"
+            ls -la
+        volumeMounts:
+          - name: ssh-key
+            mountPath: /ssh
+            readOnly: true
+          - name: workspace
+            mountPath: /workspace
+
+    # ==================== LINT ====================
+    - name: hadolint
+      container:
+        image: hadolint/hadolint:v2.12.0-alpine
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            echo "=== Linting Dockerfile ==="
+            cd /workspace/repo
+
+            if [ ! -f Dockerfile ]; then
+              echo "No Dockerfile found!"
+              exit 1
+            fi
+
+            hadolint --failure-threshold error Dockerfile
+            echo "=== Dockerfile lint passed ==="
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+
+    # ==================== BUILD ====================
+    - name: buildah-build
+      volumes:
+        - name: varlibcontainers
+          emptyDir: {}
+      securityContext:
+        runAsUser: 0
+      container:
+        image: quay.io/buildah/stable:v1.35
+        command: [/bin/sh, -c]
+        args:
+          - |
+            set -e
+
+            echo "=== Building Docker Image ==="
+            cd /workspace/repo
+
+            VERSION=$(cat /workspace/version)
+            SHORT_SHA=$(cat /workspace/short-sha)
+            IMAGE="{{workflow.parameters.image-name}}"
+
+            echo "Image: $IMAGE"
+            echo "Version: $VERSION"
+            echo "Short SHA: $SHORT_SHA"
+
+            # Configure buildah
+            mkdir -p /etc/containers
+            cat > /etc/containers/registries.conf << 'EOF'
+            unqualified-search-registries = ["docker.io"]
+            EOF
+            cat > /etc/containers/storage.conf << 'EOF'
+            [storage]
+            driver = "vfs"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            EOF
+            mkdir -p /run/containers/storage
+
+            echo ""
+            echo "Building..."
+            buildah --storage-driver vfs build \
+              --format docker \
+              -t "$IMAGE:latest" \
+              -t "$IMAGE:$VERSION" \
+              -t "$IMAGE:sha-$SHORT_SHA" \
+              .
+
+            echo ""
+            echo "=== Build complete ==="
+            buildah --storage-driver vfs images
+
+            # Save image info for push step
+            echo "$VERSION" > /workspace/built-version
+            echo "$SHORT_SHA" > /workspace/built-sha
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+          - name: varlibcontainers
+            mountPath: /var/lib/containers
+
+    # ==================== PUSH ====================
+    - name: buildah-push
+      volumes:
         - name: docker-config
           secret:
             secretName: registry-credentials
             items:
               - key: .dockerconfigjson
                 path: config.json
-        - name: workspace
-          emptyDir: {}
         - name: varlibcontainers
           emptyDir: {}
       securityContext:
         runAsUser: 0
-      script:
+      container:
         image: quay.io/buildah/stable:v1.35
-        command: [/bin/sh]
-        source: |
-          set -e
+        command: [/bin/sh, -c]
+        args:
+          - |
+            set -e
 
-          echo "============================================"
-          echo "    CI/CD Pipeline for grafana-k6-custom"
-          echo "============================================"
-          echo ""
-          echo "Repo: {{inputs.parameters.repo-ssh-url}}"
-          echo "Branch: {{inputs.parameters.branch}}"
-          echo "Image: {{inputs.parameters.image-name}}"
-          echo ""
+            echo "=== Pushing to Registry ==="
 
-          # Install dependencies
-          echo "=== Step 0: Install Dependencies ==="
-          dnf install -y -q openssh-clients git
+            VERSION=$(cat /workspace/built-version)
+            SHORT_SHA=$(cat /workspace/built-sha)
+            IMAGE="{{workflow.parameters.image-name}}"
 
-          # Configure SSH
-          echo "=== Step 1: Configure SSH ==="
-          mkdir -p ~/.ssh
-          cp /ssh/id_rsa ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H forgejo.tailc90e09.ts.net >> ~/.ssh/known_hosts 2>/dev/null
-          echo "SSH configured"
+            # Configure buildah
+            mkdir -p /etc/containers /run/containers/storage
+            cat > /etc/containers/registries.conf << 'EOF'
+            unqualified-search-registries = ["docker.io"]
+            EOF
+            cat > /etc/containers/storage.conf << 'EOF'
+            [storage]
+            driver = "vfs"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            EOF
 
-          # Clone repository
-          echo ""
-          echo "=== Step 2: Clone Repository ==="
-          cd /workspace
+            export REGISTRY_AUTH_FILE=/docker-config/config.json
 
-          COMMIT_SHA="{{inputs.parameters.commit-sha}}"
-          BRANCH="{{inputs.parameters.branch}}"
+            # Rebuild for push (vfs doesn't persist between containers)
+            cd /workspace/repo
+            echo "Rebuilding for push..."
+            buildah --storage-driver vfs build \
+              --format docker \
+              -t "$IMAGE:latest" \
+              -t "$IMAGE:$VERSION" \
+              -t "$IMAGE:sha-$SHORT_SHA" \
+              .
 
-          if [ -n "$COMMIT_SHA" ] && [ "$COMMIT_SHA" != "" ]; then
-            echo "Cloning at commit: $COMMIT_SHA"
-            git clone {{inputs.parameters.repo-ssh-url}} repo
-            cd repo
-            git checkout $COMMIT_SHA
-          else
-            echo "Cloning branch: $BRANCH"
-            git clone --depth 1 --branch $BRANCH {{inputs.parameters.repo-ssh-url}} repo
-            cd repo
-          fi
+            echo ""
+            echo "Pushing $IMAGE:latest"
+            buildah --storage-driver vfs push "$IMAGE:latest"
 
-          COMMIT=$(git rev-parse HEAD)
-          SHORT_SHA=$(echo $COMMIT | cut -c1-7)
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.1.0-$SHORT_SHA")
+            echo "Pushing $IMAGE:$VERSION"
+            buildah --storage-driver vfs push "$IMAGE:$VERSION"
 
-          echo "Commit: $COMMIT"
-          echo "Version: $VERSION"
-          echo "Files:"
-          ls -la
+            echo "Pushing $IMAGE:sha-$SHORT_SHA"
+            buildah --storage-driver vfs push "$IMAGE:sha-$SHORT_SHA"
 
-          # Lint Dockerfile
-          echo ""
-          echo "=== Step 3: Lint Dockerfile ==="
-          if [ -f Dockerfile ]; then
-            echo "Dockerfile found, skipping hadolint (not installed in buildah image)"
-          else
-            echo "No Dockerfile found"
-            exit 1
-          fi
-
-          # Build with Buildah
-          echo ""
-          echo "=== Step 4: Build Docker Image ==="
-          IMAGE="{{inputs.parameters.image-name}}"
-
-          # Configure registries and storage
-          mkdir -p /etc/containers /var/lib/containers/storage /run/containers/storage
-          cat > /etc/containers/registries.conf << 'EOF'
-          unqualified-search-registries = ["docker.io"]
-          EOF
-          cat > /etc/containers/storage.conf << 'EOF'
-          [storage]
-          driver = "vfs"
-          runroot = "/run/containers/storage"
-          graphroot = "/var/lib/containers/storage"
-          EOF
-
-          buildah --storage-driver vfs build \
-            --format docker \
-            -t "$IMAGE:latest" \
-            -t "$IMAGE:$VERSION" \
-            -t "$IMAGE:sha-$SHORT_SHA" \
-            .
-
-          echo "Build complete"
-          buildah --storage-driver vfs images
-
-          # Push to registry
-          echo ""
-          echo "=== Step 5: Push to Registry ==="
-
-          # Configure registry auth
-          export REGISTRY_AUTH_FILE=/docker-config/config.json
-
-          echo "Pushing $IMAGE:latest"
-          buildah --storage-driver vfs push "$IMAGE:latest"
-
-          echo "Pushing $IMAGE:$VERSION"
-          buildah --storage-driver vfs push "$IMAGE:$VERSION"
-
-          echo "Pushing $IMAGE:sha-$SHORT_SHA"
-          buildah --storage-driver vfs push "$IMAGE:sha-$SHORT_SHA"
-
-          echo ""
-          echo "============================================"
-          echo "    ✅ CI/CD Pipeline completed!"
-          echo "============================================"
-          echo ""
-          echo "🐳 Docker images pushed:"
-          echo "   $IMAGE:latest"
-          echo "   $IMAGE:$VERSION"
-          echo "   $IMAGE:sha-$SHORT_SHA"
-          echo ""
+            echo ""
+            echo "=== Push complete ==="
         volumeMounts:
-          - name: ssh-key
-            mountPath: /ssh
-            readOnly: true
+          - name: workspace
+            mountPath: /workspace
           - name: docker-config
             mountPath: /docker-config
             readOnly: true
-          - name: workspace
-            mountPath: /workspace
           - name: varlibcontainers
             mountPath: /var/lib/containers
+
+    # ==================== NOTIFY ====================
+    - name: notify
+      inputs:
+        parameters:
+          - name: message
+      container:
+        image: alpine:3.19
+        command: [sh, -c]
+        args:
+          - |
+            echo "============================================"
+            echo "{{inputs.parameters.message}}"
+            echo "============================================"
+            echo ""
+            echo "Image: {{workflow.parameters.image-name}}"
+            echo "Version: $(cat /workspace/version 2>/dev/null || echo 'N/A')"
+            echo "Commit: $(cat /workspace/short-sha 2>/dev/null || echo 'N/A')"
+            echo ""
+            echo "============================================"
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
