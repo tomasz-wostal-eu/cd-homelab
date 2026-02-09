@@ -43,6 +43,11 @@ spec:
               - $values/values/argo-workflows/{{ .region }}/{{ .env }}/values.yaml
         - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
+          path: extras/{{ .region }}/argo-workflows
+          directory:
+            recurse: true
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
           ref: values
       destination:
         server: "{{ .cluster }}"

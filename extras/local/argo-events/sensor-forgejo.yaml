@@ -25,9 +25,9 @@ spec:
               kind: Workflow
               metadata:
                 generateName: forgejo-debug-
-                namespace: argo-events
+                namespace: argo-workflows
               spec:
-                serviceAccountName: argo-events-sa
+                serviceAccountName: argo-workflows-sa
                 entrypoint: debug
                 arguments:
                   parameters:

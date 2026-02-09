@@ -1,0 +1,63 @@
+---
+# Allow argo-events sensor to create workflows in argo-workflows namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-events-workflow-creator
+  namespace: argo-workflows
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows", "workflowtemplates"]
+    verbs: ["create", "get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-events-workflow-creator-binding
+  namespace: argo-workflows
+subjects:
+  - kind: ServiceAccount
+    name: argo-events-sa
+    namespace: argo-events
+roleRef:
+  kind: Role
+  name: argo-events-workflow-creator
+  apiGroup: rbac.authorization.k8s.io
+---
+# ServiceAccount for running workflows in argo-workflows namespace
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argo-workflows-sa
+  namespace: argo-workflows
+---
+# Role for workflow execution
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-workflows-executor
+  namespace: argo-workflows
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflowtaskresults"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-workflows-executor-binding
+  namespace: argo-workflows
+subjects:
+  - kind: ServiceAccount
+    name: argo-workflows-sa
+    namespace: argo-workflows
+roleRef:
+  kind: Role
+  name: argo-workflows-executor
+  apiGroup: rbac.authorization.k8s.io
