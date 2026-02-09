@@ -11,7 +11,3 @@ spec:
     native:
       replicas: 3
       auth: token
-      persistence:
-        storageClassName: local-path
-        accessMode: ReadWriteOnce
-        volumeSize: 1Gi
