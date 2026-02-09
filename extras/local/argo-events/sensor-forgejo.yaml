@@ -1,6 +1,6 @@
 ---
 # Sensor for Forgejo webhook events
-# Parses webhook and triggers CI/CD pipeline
+# Separate triggers for push and pull_request events
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
@@ -11,12 +11,29 @@ spec:
   template:
     serviceAccountName: argo-events-sa
   dependencies:
-    - name: forgejo-webhook
+    - name: forgejo-push
       eventSourceName: forgejo
       eventName: grafana-k6-custom
+      filters:
+        data:
+          - path: header.X-Forgejo-Event.0
+            type: string
+            value:
+              - "push"
+    - name: forgejo-pr
+      eventSourceName: forgejo
+      eventName: grafana-k6-custom
+      filters:
+        data:
+          - path: header.X-Forgejo-Event.0
+            type: string
+            value:
+              - "pull_request"
   triggers:
+    # ==================== PUSH TRIGGER ====================
     - template:
-        name: ci-cd-pipeline
+        name: push-pipeline
+        conditions: "forgejo-push"
         k8s:
           operation: create
           source:
@@ -24,17 +41,14 @@ spec:
               apiVersion: argoproj.io/v1alpha1
               kind: Workflow
               metadata:
-                generateName: grafana-k6-custom-
+                generateName: k6-push-
                 namespace: argo-workflows
-                labels:
-                  workflows.argoproj.io/workflow-template: ci-cd-docker
               spec:
                 serviceAccountName: argo-workflows-sa
                 workflowTemplateRef:
                   name: ci-cd-docker
                 arguments:
                   parameters:
-                    # Git parameters
                     - name: repo-ssh-url
                       value: "git@forgejo.tailc90e09.ts.net:wostal/grafana-k6-custom.git"
                     - name: repo-http-url
@@ -45,64 +59,91 @@ spec:
                       value: "refs/heads/main"
                     - name: commit-sha
                       value: ""
-                    # Docker parameters
                     - name: image-name
                       value: "forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom"
                     - name: platforms
                       value: "linux/amd64"
-                    # Event parameters
                     - name: event-type
                       value: "push"
                     - name: pr-number
                       value: ""
                     - name: pr-action
                       value: ""
-                    # Sender info
                     - name: sender-login
                       value: ""
           parameters:
-            # Event type from header
             - src:
-                dependencyName: forgejo-webhook
-                dataKey: header.X-Forgejo-Event.0
-              dest: spec.arguments.parameters.8.value
-            # Ref (for push events)
-            - src:
-                dependencyName: forgejo-webhook
+                dependencyName: forgejo-push
                 dataKey: body.ref
               dest: spec.arguments.parameters.3.value
-            # Commit SHA - from push (after) or PR (head.sha)
             - src:
-                dependencyName: forgejo-webhook
+                dependencyName: forgejo-push
                 dataKey: body.after
               dest: spec.arguments.parameters.4.value
-            # Branch - extract from ref or PR head
             - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.ref
-              dest: spec.arguments.parameters.2.value
-            # PR number
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.pull_request.number
-              dest: spec.arguments.parameters.9.value
-            # PR action
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.action
-              dest: spec.arguments.parameters.10.value
-            # Sender login
-            - src:
-                dependencyName: forgejo-webhook
+                dependencyName: forgejo-push
                 dataKey: body.sender.login
               dest: spec.arguments.parameters.11.value
-            # For PR events - get commit from PR head
+
+    # ==================== PR TRIGGER ====================
+    - template:
+        name: pr-pipeline
+        conditions: "forgejo-pr"
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: k6-pr-
+                namespace: argo-workflows
+              spec:
+                serviceAccountName: argo-workflows-sa
+                workflowTemplateRef:
+                  name: ci-cd-docker
+                arguments:
+                  parameters:
+                    - name: repo-ssh-url
+                      value: "git@forgejo.tailc90e09.ts.net:wostal/grafana-k6-custom.git"
+                    - name: repo-http-url
+                      value: "https://forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom"
+                    - name: branch
+                      value: "main"
+                    - name: ref
+                      value: ""
+                    - name: commit-sha
+                      value: ""
+                    - name: image-name
+                      value: "forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom"
+                    - name: platforms
+                      value: "linux/amd64"
+                    - name: event-type
+                      value: "pull_request"
+                    - name: pr-number
+                      value: ""
+                    - name: pr-action
+                      value: ""
+                    - name: sender-login
+                      value: ""
+          parameters:
             - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.pull_request.head.sha
-              dest: spec.arguments.parameters.4.value
-            # For PR events - get ref from PR head
-            - src:
-                dependencyName: forgejo-webhook
+                dependencyName: forgejo-pr
                 dataKey: body.pull_request.head.ref
               dest: spec.arguments.parameters.2.value
+            - src:
+                dependencyName: forgejo-pr
+                dataKey: body.pull_request.head.sha
+              dest: spec.arguments.parameters.4.value
+            - src:
+                dependencyName: forgejo-pr
+                dataKey: body.pull_request.number
+              dest: spec.arguments.parameters.9.value
+            - src:
+                dependencyName: forgejo-pr
+                dataKey: body.action
+              dest: spec.arguments.parameters.10.value
+            - src:
+                dependencyName: forgejo-pr
+                dataKey: body.sender.login
+              dest: spec.arguments.parameters.11.value
