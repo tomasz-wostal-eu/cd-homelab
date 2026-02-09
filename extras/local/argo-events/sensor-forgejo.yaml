@@ -39,41 +39,15 @@ spec:
                     - name: repo-http-url
                       value: "https://forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom"
                     - name: branch
+                      value: "main"
                     - name: commit-sha
+                      value: ""
                     - name: image-name
                       value: "forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom"
                     - name: event-type
+                      value: "push"
                     - name: pr-number
-          parameters:
-            # Branch - from ref for push, from PR head for pull_request
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.ref
-                value: "main"
-              dest: spec.arguments.parameters.2.value
-              operation: overwrite
-            # Commit SHA
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.after
-              dest: spec.arguments.parameters.3.value
-              operation: overwrite
-            # Fallback commit SHA for PR events
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.pull_request.head.sha
-              dest: spec.arguments.parameters.3.value
-              operation: overwrite
-            # Event type
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: header.X-Forgejo-Event
-              dest: spec.arguments.parameters.5.value
-              operation: overwrite
-            # PR number (if applicable)
-            - src:
-                dependencyName: forgejo-webhook
-                dataKey: body.pull_request.number
-                value: ""
-              dest: spec.arguments.parameters.6.value
-              operation: overwrite
+                      value: ""
+          # Parameters disabled for now - using defaults
+          # TODO: re-enable when using real push/PR events
+          parameters: []

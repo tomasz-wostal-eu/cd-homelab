@@ -14,8 +14,10 @@ spec:
       # Git parameters
       - name: repo-ssh-url
         description: "SSH URL of the repository"
+        default: ""
       - name: repo-http-url
         description: "HTTP URL of the repository (for display)"
+        default: ""
       - name: branch
         default: "main"
       - name: commit-sha
@@ -23,8 +25,9 @@ spec:
       # Docker parameters
       - name: image-name
         description: "Full image name (e.g., forgejo.tailc90e09.ts.net/wostal/grafana-k6-custom)"
+        default: ""
       - name: platforms
-        default: "linux/amd64,linux/arm64"
+        default: "linux/amd64"
       # Event parameters
       - name: event-type
         default: "push"
