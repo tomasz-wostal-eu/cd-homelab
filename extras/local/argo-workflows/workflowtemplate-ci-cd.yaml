@@ -127,6 +127,10 @@ spec:
           echo "=== Step 4: Build Docker Image ==="
           IMAGE="{{inputs.parameters.image-name}}"
 
+          # Configure registries for short names
+          mkdir -p /etc/containers
+          echo 'unqualified-search-registries = ["docker.io"]' > /etc/containers/registries.conf
+
           buildah build \
             --format docker \
             --layers \
