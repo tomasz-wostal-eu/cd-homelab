@@ -154,8 +154,7 @@ spec:
           echo "=== Step 5: Push to Registry ==="
 
           # Configure registry auth
-          mkdir -p /run/containers/0
-          cp /docker-config/config.json /run/containers/0/auth.json
+          export REGISTRY_AUTH_FILE=/docker-config/config.json
 
           echo "Pushing $IMAGE:latest"
           buildah --storage-driver vfs push "$IMAGE:latest"
