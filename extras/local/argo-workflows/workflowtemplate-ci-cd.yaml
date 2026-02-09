@@ -48,7 +48,8 @@ spec:
     - metadata:
         name: workspace
       spec:
-        accessModes: ["ReadWriteOnce"]
+        storageClassName: nfs-csi
+        accessModes: ["ReadWriteMany"]
         resources:
           requests:
             storage: 1Gi
