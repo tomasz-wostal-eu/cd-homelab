@@ -1,24 +1,28 @@
 ---
-# Sensor for Forgejo webhook events
-# Single dependency, trigger-level filtering for push vs pull_request
+# Sensor for Forgejo PUSH events
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
-  name: forgejo
+  name: forgejo-push
   namespace: argo-events
 spec:
   eventBusName: default
   template:
     serviceAccountName: argo-events-sa
   dependencies:
-    - name: forgejo-event
+    - name: push-event
       eventSourceName: forgejo
       eventName: grafana-k6-custom
+      filters:
+        data:
+          - path: header.X-Forgejo-Event.0
+            type: string
+            value:
+              - "push"
   triggers:
-    # ==================== PUSH TRIGGER ====================
     - template:
         name: push-pipeline
-        conditions: "forgejo-event"
+        conditions: "push-event"
         conditionsReset:
           - byTime:
               cron: "* * * * *"
@@ -61,38 +65,44 @@ spec:
                       value: ""
           parameters:
             - src:
-                dependencyName: forgejo-event
+                dependencyName: push-event
                 dataKey: body.ref
-                useRawData: false
-                value: "refs/heads/main"
               dest: spec.arguments.parameters.3.value
             - src:
-                dependencyName: forgejo-event
+                dependencyName: push-event
                 dataKey: body.after
-                useRawData: false
-                value: ""
               dest: spec.arguments.parameters.4.value
             - src:
-                dependencyName: forgejo-event
+                dependencyName: push-event
                 dataKey: body.sender.login
-                useRawData: false
-                value: ""
               dest: spec.arguments.parameters.10.value
       retryStrategy:
         steps: 3
-      # Only trigger for push events
-      filtersLogicalOperator: "and"
+---
+# Sensor for Forgejo PULL REQUEST events
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: forgejo-pr
+  namespace: argo-events
+spec:
+  eventBusName: default
+  template:
+    serviceAccountName: argo-events-sa
+  dependencies:
+    - name: pr-event
+      eventSourceName: forgejo
+      eventName: grafana-k6-custom
       filters:
         data:
           - path: header.X-Forgejo-Event.0
             type: string
             value:
-              - "push"
-
-    # ==================== PR TRIGGER ====================
+              - "pull_request"
+  triggers:
     - template:
         name: pr-pipeline
-        conditions: "forgejo-event"
+        conditions: "pr-event"
         conditionsReset:
           - byTime:
               cron: "* * * * *"
@@ -135,42 +145,24 @@ spec:
                       value: ""
           parameters:
             - src:
-                dependencyName: forgejo-event
+                dependencyName: pr-event
                 dataKey: body.pull_request.head.ref
-                useRawData: false
-                value: "main"
               dest: spec.arguments.parameters.2.value
             - src:
-                dependencyName: forgejo-event
+                dependencyName: pr-event
                 dataKey: body.pull_request.head.sha
-                useRawData: false
-                value: ""
               dest: spec.arguments.parameters.4.value
             - src:
-                dependencyName: forgejo-event
+                dependencyName: pr-event
                 dataKey: body.pull_request.number
-                useRawData: false
-                value: ""
               dest: spec.arguments.parameters.8.value
             - src:
-                dependencyName: forgejo-event
+                dependencyName: pr-event
                 dataKey: body.action
-                useRawData: false
-                value: ""
               dest: spec.arguments.parameters.9.value
             - src:
-                dependencyName: forgejo-event
+                dependencyName: pr-event
                 dataKey: body.sender.login
-                useRawData: false
-                value: ""
               dest: spec.arguments.parameters.10.value
       retryStrategy:
         steps: 3
-      # Only trigger for pull_request events
-      filtersLogicalOperator: "and"
-      filters:
-        data:
-          - path: header.X-Forgejo-Event.0
-            type: string
-            value:
-              - "pull_request"
