@@ -18,13 +18,13 @@ spec:
       method: POST
 
       # Event filtering - accept only specific event types
-      # Forgejo sends event type in X-Gitea-Event header
+      # Forgejo sends event type in X-Forgejo-Event header
       filter:
         expression: |
           (
-            headers["X-Gitea-Event"] == "push" ||
-            headers["X-Gitea-Event"] == "pull_request" ||
-            headers["X-Gitea-Event"] == "pull_request_sync"
+            headers["X-Forgejo-Event"] == "push" ||
+            headers["X-Forgejo-Event"] == "pull_request" ||
+            headers["X-Forgejo-Event"] == "pull_request_sync"
           )
 ---
 # Service for the EventSource webhook endpoint

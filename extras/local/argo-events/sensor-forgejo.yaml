@@ -130,11 +130,11 @@ spec:
             # Event metadata from headers
             - src:
                 dependencyName: forgejo-webhook
-                dataKey: header.X-Gitea-Event
+                dataKey: header.X-Forgejo-Event
               dest: spec.arguments.parameters.0.value
             - src:
                 dependencyName: forgejo-webhook
-                dataKey: header.X-Gitea-Delivery
+                dataKey: header.X-Forgejo-Delivery
               dest: spec.arguments.parameters.1.value
             # Repository info
             - src:
