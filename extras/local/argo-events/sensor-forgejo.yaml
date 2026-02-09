@@ -78,7 +78,7 @@ spec:
       filtersLogicalOperator: "and"
       filters:
         data:
-          - path: header.X-Forgejo-Event
+          - path: header.X-Forgejo-Event.0
             type: string
             value:
               - "push"
@@ -139,22 +139,22 @@ spec:
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.pull_request.number
-              dest: spec.arguments.parameters.9.value
+              dest: spec.arguments.parameters.8.value
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.action
-              dest: spec.arguments.parameters.10.value
+              dest: spec.arguments.parameters.9.value
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.sender.login
-              dest: spec.arguments.parameters.11.value
+              dest: spec.arguments.parameters.10.value
       retryStrategy:
         steps: 3
       # Only trigger for pull_request events
       filtersLogicalOperator: "and"
       filters:
         data:
-          - path: header.X-Forgejo-Event
+          - path: header.X-Forgejo-Event.0
             type: string
             value:
               - "pull_request"
