@@ -127,20 +127,21 @@ spec:
           echo "=== Step 4: Build Docker Image ==="
           IMAGE="{{inputs.parameters.image-name}}"
 
-          # Configure registries for short names
+          # Configure registries and storage
           mkdir -p /etc/containers
           echo 'unqualified-search-registries = ["docker.io"]' > /etc/containers/registries.conf
+          echo '[storage]' > /etc/containers/storage.conf
+          echo 'driver = "vfs"' >> /etc/containers/storage.conf
 
-          buildah build \
+          buildah --storage-driver vfs build \
             --format docker \
-            --layers \
             -t "$IMAGE:latest" \
             -t "$IMAGE:$VERSION" \
             -t "$IMAGE:sha-$SHORT_SHA" \
             .
 
           echo "Build complete"
-          buildah images
+          buildah --storage-driver vfs images
 
           # Push to registry
           echo ""
@@ -151,13 +152,13 @@ spec:
           cp /docker-config/config.json /run/containers/0/auth.json
 
           echo "Pushing $IMAGE:latest"
-          buildah push "$IMAGE:latest"
+          buildah --storage-driver vfs push "$IMAGE:latest"
 
           echo "Pushing $IMAGE:$VERSION"
-          buildah push "$IMAGE:$VERSION"
+          buildah --storage-driver vfs push "$IMAGE:$VERSION"
 
           echo "Pushing $IMAGE:sha-$SHORT_SHA"
-          buildah push "$IMAGE:sha-$SHORT_SHA"
+          buildah --storage-driver vfs push "$IMAGE:sha-$SHORT_SHA"
 
           echo ""
           echo "============================================"
