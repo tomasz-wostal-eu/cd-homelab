@@ -16,16 +16,6 @@ spec:
       port: "12000"
       endpoint: /grafana-k6-custom
       method: POST
-
-      # Event filtering - accept only specific event types
-      # Forgejo sends event type in X-Forgejo-Event header
-      filter:
-        expression: |
-          (
-            headers["X-Forgejo-Event"] == "push" ||
-            headers["X-Forgejo-Event"] == "pull_request" ||
-            headers["X-Forgejo-Event"] == "pull_request_sync"
-          )
 ---
 # Service for the EventSource webhook endpoint
 # This is auto-created by Argo Events, but we define it explicitly
