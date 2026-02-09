@@ -71,7 +71,7 @@ spec:
             - src:
                 dependencyName: forgejo-event
                 dataKey: body.sender.login
-              dest: spec.arguments.parameters.11.value
+              dest: spec.arguments.parameters.10.value
       retryStrategy:
         steps: 3
       # Only trigger for push events
