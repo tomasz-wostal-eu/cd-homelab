@@ -59,7 +59,7 @@ spec:
         runAsUser: 0
       script:
         image: quay.io/buildah/stable:v1.35
-        command: [bash]
+        command: [/bin/sh]
         source: |
           set -e
 
