@@ -10,4 +10,3 @@ cloudflare:
   ingress:
     - hostname: grafana.devopslaboratory.org
       service: http://envoy-cloudflared-cloudflare-gateway.cloudflared.svc.cluster.local:80
-    - service: http_status:404
