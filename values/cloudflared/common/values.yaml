@@ -1,0 +1,15 @@
+# Cloudflare Tunnel common configuration
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "2000"

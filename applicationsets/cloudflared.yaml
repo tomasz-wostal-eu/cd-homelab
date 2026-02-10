@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cloudflared
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - git:
+              repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+              revision: HEAD
+              directories:
+                - path: values/cloudflared/local/*
+          - list:
+              elements:
+                - chart: cloudflare-tunnel
+                  repoURL: https://cloudflare.github.io/helm-charts
+                  targetRevision: 0.*
+  template:
+    metadata:
+      name: 'cloudflared-{{ .path.basename }}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+    spec:
+      project: platform-networking
+      sources:
+        - repoURL: '{{ .repoURL }}'
+          targetRevision: '{{ .targetRevision }}'
+          chart: '{{ .chart }}'
+          helm:
+            valueFiles:
+              - $values/values/cloudflared/common/values.yaml
+              - $values/values/cloudflared/local/{{ .path.basenameNormalized }}/values.yaml
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: HEAD
+          ref: values
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: HEAD
+          path: extras/local/cloudflared
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: cloudflared
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
