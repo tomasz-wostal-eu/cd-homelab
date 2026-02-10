@@ -39,6 +39,7 @@ spec:
         helm:
           releaseName: envoy-gateway
           valuesObject:
+            createGatewayClass: true
             config:
               envoyGateway:
                 gateway:
