@@ -4,22 +4,22 @@
 ingester:
   resources:
     requests:
-      cpu: 25m
-      memory: 256Mi
-    limits:
-      cpu: 250m
+      cpu: 50m
       memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 2Gi
   persistentVolume:
     size: 2Gi
 
 distributor:
   resources:
     requests:
-      cpu: 10m
-      memory: 128Mi
+      cpu: 25m
+      memory: 256Mi
     limits:
-      cpu: 100m
-      memory: 384Mi
+      cpu: 250m
+      memory: 1Gi
 
 querier:
   resources:
