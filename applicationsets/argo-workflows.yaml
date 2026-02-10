@@ -62,6 +62,13 @@ spec:
           value: "{{ .type }}"
         - name: Chart Version
           value: "{{ .helmRevision }}"
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .spec.data[]?.remoteRef.conversionStrategy
+            - .spec.data[]?.remoteRef.decodingStrategy
+            - .spec.data[]?.remoteRef.metadataPolicy
       syncPolicy:
         automated:
           prune: true
@@ -87,3 +94,4 @@ spec:
           - PruneLast=true
           - ApplyOutOfSyncOnly=true
           - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true
