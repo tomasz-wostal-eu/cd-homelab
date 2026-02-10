@@ -51,6 +51,10 @@ mimir:
       filesystem:
         dir: /data/mimir/alertmanager
 
+    # Compactor configuration
+    compactor:
+      data_dir: /data/mimir/compactor
+
 # Ingester
 ingester:
   replicas: 1
