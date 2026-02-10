@@ -5,10 +5,10 @@ ingester:
   resources:
     requests:
       cpu: 25m
-      memory: 128Mi
+      memory: 256Mi
     limits:
       cpu: 250m
-      memory: 384Mi
+      memory: 512Mi
   persistentVolume:
     size: 2Gi
 
@@ -16,10 +16,10 @@ distributor:
   resources:
     requests:
       cpu: 10m
-      memory: 64Mi
+      memory: 128Mi
     limits:
       cpu: 100m
-      memory: 256Mi
+      memory: 384Mi
 
 querier:
   resources:
