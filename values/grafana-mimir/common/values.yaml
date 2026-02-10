@@ -1,0 +1,186 @@
+# Mimir configuration for homelab
+# Using microservices mode but with single replica for low footprint
+
+# Global configuration
+global:
+  extraEnvFrom: []
+
+# Mimir configuration
+mimir:
+  structuredConfig:
+    common:
+      storage:
+        backend: filesystem
+        filesystem:
+          dir: /data/mimir
+
+    # Limits configuration
+    limits:
+      # Ingestion limits
+      ingestion_rate: 10000
+      ingestion_burst_size: 200000
+      max_global_series_per_user: 150000
+      max_global_series_per_metric: 50000
+      max_label_names_per_series: 30
+      max_label_value_length: 2048
+
+      # Query limits
+      max_fetched_series_per_query: 50000
+      max_fetched_chunks_per_query: 2000000
+
+      # Compactor
+      compactor_blocks_retention_period: 168h  # 7 days
+
+    # Blocks storage
+    blocks_storage:
+      backend: filesystem
+      filesystem:
+        dir: /data/mimir/blocks
+      tsdb:
+        dir: /data/mimir/tsdb
+
+    # Ruler storage
+    ruler_storage:
+      backend: filesystem
+      filesystem:
+        dir: /data/mimir/ruler
+
+    # Alertmanager storage
+    alertmanager_storage:
+      backend: filesystem
+      filesystem:
+        dir: /data/mimir/alertmanager
+
+# Ingester
+ingester:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistentVolume:
+    enabled: true
+    size: 5Gi
+
+# Distributor
+distributor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Querier
+querier:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Query frontend
+query_frontend:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Store gateway
+store_gateway:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  persistentVolume:
+    enabled: true
+    size: 2Gi
+
+# Compactor
+compactor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  persistentVolume:
+    enabled: true
+    size: 2Gi
+
+# Ruler disabled for homelab
+ruler:
+  enabled: false
+
+# Alertmanager disabled for homelab
+alertmanager:
+  enabled: false
+
+# Overrides exporter disabled
+overrides_exporter:
+  enabled: false
+
+# Query scheduler disabled (not needed for single replica)
+query_scheduler:
+  enabled: false
+
+# Nginx gateway
+nginx:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Minio disabled - using filesystem
+minio:
+  enabled: false
+
+# Memcached disabled for simplicity
+chunks-cache:
+  enabled: false
+index-cache:
+  enabled: false
+metadata-cache:
+  enabled: false
+results-cache:
+  enabled: false
+
+# Rollout operator disabled
+rollout_operator:
+  enabled: false
+
+# Monitoring
+metaMonitoring:
+  dashboards:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+  prometheusRule:
+    enabled: false

@@ -1,0 +1,52 @@
+# Grafana K6 Operator configuration for homelab
+# K6 operator for running load tests in Kubernetes
+
+# Custom Resource Definitions
+installCRDs: true
+
+# Namespace configuration
+namespace:
+  create: true
+
+# RBAC configuration
+rbac:
+  namespaced: false
+
+# Operator configuration
+manager:
+  replicas: 1
+  logging:
+    development: false
+  serviceAccount:
+    create: true
+    name: k6-operator-controller
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8081
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: 8081
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+# Prometheus ServiceMonitor disabled
+metrics:
+  serviceMonitor:
+    enabled: false
+
+# Pod annotations for metrics discovery
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"

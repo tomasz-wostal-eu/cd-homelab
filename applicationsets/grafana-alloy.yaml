@@ -1,0 +1,88 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: grafana-alloy
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: monitoring
+            helmRevision: "0.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: grafana-alloy-{{ .name }}
+      labels:
+        app.kubernetes.io/name: grafana-alloy
+        app.kubernetes.io/instance: grafana-alloy-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+    spec:
+      project: platform-observability
+      sources:
+        - repoURL: https://grafana.github.io/helm-charts
+          chart: alloy
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: alloy
+            valueFiles:
+              - $values/values/grafana-alloy/common/values.yaml
+              - $values/values/grafana-alloy/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          ref: values
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          path: extras/{{ .region }}/grafana-alloy
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m
+        managedNamespaceMetadata:
+          labels:
+            owner: argocd
+            app.kubernetes.io/part-of: monitoring
+            region: "{{ .region }}"
+            env: "{{ .env }}"
+            istio.io/dataplane-mode: ambient
+          annotations:
+            argocd.argoproj.io/managed-by: "grafana-alloy-{{ .name }}"
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true

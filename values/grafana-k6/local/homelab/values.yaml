@@ -1,0 +1,11 @@
+# K6 Operator homelab-specific configuration
+# Minimal resources for local k3d cluster
+
+manager:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi

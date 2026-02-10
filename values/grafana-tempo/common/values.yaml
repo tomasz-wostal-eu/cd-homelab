@@ -1,0 +1,105 @@
+# Tempo configuration for homelab
+# Using single-binary (monolithic) mode for simplicity
+
+# Tempo configuration
+tempo:
+  # Storage configuration - local filesystem
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+
+  # Retention
+  retention: 168h  # 7 days
+
+  # Server configuration
+  server:
+    http_listen_port: 3200
+    grpc_listen_port: 9095
+
+  # Receivers configuration
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: "0.0.0.0:4318"
+        grpc:
+          endpoint: "0.0.0.0:4317"
+    jaeger:
+      protocols:
+        thrift_http:
+          endpoint: "0.0.0.0:14268"
+        grpc:
+          endpoint: "0.0.0.0:14250"
+    zipkin:
+      endpoint: "0.0.0.0:9411"
+
+  # Query configuration
+  query_frontend:
+    search:
+      max_duration: 0s  # No limit
+
+  # Ingester configuration
+  ingester:
+    max_block_duration: 30m
+    trace_idle_period: 10s
+
+  # Compactor configuration
+  compactor:
+    compaction:
+      block_retention: 168h  # 7 days
+
+  # Overrides
+  overrides:
+    defaults:
+      ingestion:
+        rate_limit_bytes: 15000000
+        burst_size_bytes: 20000000
+      read:
+        max_bytes_per_tag_values_query: 5000000
+
+  # Metrics generator (disabled for homelab)
+  metrics_generator:
+    enabled: false
+
+# Resources
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Persistence
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClassName: ""  # Use default
+
+# Service configuration
+service:
+  type: ClusterIP
+
+# Replicas
+replicas: 1
+
+# Pod annotations for metrics
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "3200"
+  prometheus.io/path: "/metrics"
+
+# Security context
+securityContext:
+  fsGroup: 10001
+  runAsGroup: 10001
+  runAsNonRoot: true
+  runAsUser: 10001
+
+# Tempo query disabled (using Grafana instead)
+tempoQuery:
+  enabled: false

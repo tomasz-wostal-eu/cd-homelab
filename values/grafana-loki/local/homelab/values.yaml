@@ -1,0 +1,13 @@
+# Loki homelab-specific configuration
+# Minimal resources for local k3d cluster
+
+singleBinary:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi
+  persistence:
+    size: 5Gi

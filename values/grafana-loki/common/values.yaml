@@ -1,0 +1,117 @@
+# Loki configuration for homelab
+# Using single-binary mode for simplicity and low resource usage
+
+# Deployment mode - single binary (not distributed)
+deploymentMode: SingleBinary
+
+# Single binary configuration
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""  # Use default
+
+# Loki configuration
+loki:
+  # Authentication disabled for homelab
+  auth_enabled: false
+
+  # Common configuration
+  commonConfig:
+    replication_factor: 1
+    path_prefix: /var/loki
+
+  # Schema configuration
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+
+  # Storage configuration - filesystem for homelab
+  storage:
+    type: filesystem
+
+  # Limits configuration
+  limits_config:
+    retention_period: 168h  # 7 days
+    ingestion_rate_mb: 4
+    ingestion_burst_size_mb: 6
+    max_query_series: 500
+    max_query_parallelism: 2
+    max_entries_limit_per_query: 5000
+
+# Disable distributed components (not needed for single-binary)
+ingester:
+  replicas: 0
+distributor:
+  replicas: 0
+querier:
+  replicas: 0
+queryFrontend:
+  replicas: 0
+queryScheduler:
+  replicas: 0
+compactor:
+  replicas: 0
+indexGateway:
+  replicas: 0
+bloomCompactor:
+  replicas: 0
+bloomGateway:
+  replicas: 0
+
+# Gateway disabled - direct access in homelab
+gateway:
+  enabled: false
+
+# Disable backends (single-binary handles all)
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+# Chunk cache disabled for simplicity
+chunksCache:
+  enabled: false
+
+# Results cache disabled for simplicity
+resultsCache:
+  enabled: false
+
+# Minio disabled - using filesystem
+minio:
+  enabled: false
+
+# Monitoring
+monitoring:
+  selfMonitoring:
+    enabled: false
+  lokiCanary:
+    enabled: false
+  dashboards:
+    enabled: false
+  rules:
+    enabled: false
+
+# Service configuration
+service:
+  type: ClusterIP
+
+# Test disabled
+test:
+  enabled: false
