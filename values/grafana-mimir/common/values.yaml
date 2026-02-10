@@ -66,6 +66,7 @@ ingester:
   persistentVolume:
     enabled: true
     size: 5Gi
+    storageClass: "nfs-rwx"
 
 # Distributor
 distributor:
@@ -115,6 +116,7 @@ store_gateway:
   persistentVolume:
     enabled: true
     size: 2Gi
+    storageClass: "nfs-rwx"
 
 # Compactor
 compactor:
@@ -129,6 +131,7 @@ compactor:
   persistentVolume:
     enabled: true
     size: 2Gi
+    storageClass: "nfs-rwx"
 
 # Ruler disabled for homelab
 ruler:

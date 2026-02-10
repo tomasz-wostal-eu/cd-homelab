@@ -78,7 +78,7 @@ resources:
 persistence:
   enabled: true
   size: 5Gi
-  storageClassName: ""  # Use default
+  storageClassName: "nfs-rwx"
 
 # Service configuration
 service:

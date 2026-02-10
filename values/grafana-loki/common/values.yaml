@@ -17,7 +17,7 @@ singleBinary:
   persistence:
     enabled: true
     size: 10Gi
-    storageClass: ""  # Use default
+    storageClass: "nfs-rwx"
 
 # Loki configuration
 loki:
