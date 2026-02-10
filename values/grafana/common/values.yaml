@@ -4,3 +4,203 @@ replicas: 1
 service:
   type: ClusterIP
   port: 80
+
+# Dashboard providers configuration
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: 'kubernetes'
+        orgId: 1
+        folder: 'Kubernetes'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/kubernetes
+      - name: 'grafana-stack'
+        orgId: 1
+        folder: 'Grafana Stack'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/grafana-stack
+      - name: 'argocd'
+        orgId: 1
+        folder: 'ArgoCD'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/argocd
+      - name: 'istio'
+        orgId: 1
+        folder: 'Istio Service Mesh'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/istio
+      - name: 'envoy-gateway'
+        orgId: 1
+        folder: 'Envoy Gateway'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/envoy-gateway
+      - name: 'cert-manager'
+        orgId: 1
+        folder: 'Cert Manager'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/cert-manager
+      - name: 'external-secrets'
+        orgId: 1
+        folder: 'External Secrets'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/external-secrets
+
+# Dashboards from Grafana.com and URLs
+dashboards:
+  kubernetes:
+    api-server:
+      url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/refs/heads/master/dashboards/k8s-system-api-server.json
+    core-dns:
+      url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/refs/heads/master/dashboards/k8s-system-coredns.json
+    views-global:
+      url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/refs/heads/master/dashboards/k8s-views-global.json
+    views-namespaces:
+      url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/refs/heads/master/dashboards/k8s-views-namespaces.json
+    views-nodes:
+      url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/refs/heads/master/dashboards/k8s-views-nodes.json
+    views-pods:
+      url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/refs/heads/master/dashboards/k8s-views-pods.json
+    k3s-cluster:
+      gnetId: 16450
+      revision: 1
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Mimir
+
+  grafana-stack:
+    # Mimir dashboards
+    mimir-overview:
+      url: https://raw.githubusercontent.com/grafana/mimir/main/operations/mimir-mixin-compiled/dashboards/mimir-overview.json
+      datasource: Mimir
+    mimir-writes:
+      url: https://raw.githubusercontent.com/grafana/mimir/main/operations/mimir-mixin-compiled/dashboards/mimir-writes.json
+      datasource: Mimir
+    mimir-reads:
+      url: https://raw.githubusercontent.com/grafana/mimir/main/operations/mimir-mixin-compiled/dashboards/mimir-reads.json
+      datasource: Mimir
+    mimir-compactor:
+      url: https://raw.githubusercontent.com/grafana/mimir/main/operations/mimir-mixin-compiled/dashboards/mimir-compactor.json
+      datasource: Mimir
+    # Loki dashboards
+    loki-operational:
+      url: https://raw.githubusercontent.com/grafana/loki/main/production/loki-mixin-compiled/dashboards/loki-operational.json
+      datasource: Mimir
+    loki-reads:
+      url: https://raw.githubusercontent.com/grafana/loki/main/production/loki-mixin-compiled/dashboards/loki-reads.json
+      datasource: Mimir
+    loki-writes:
+      url: https://raw.githubusercontent.com/grafana/loki/main/production/loki-mixin-compiled/dashboards/loki-writes.json
+      datasource: Mimir
+    # Tempo dashboards
+    tempo-operational:
+      url: https://raw.githubusercontent.com/grafana/tempo/main/operations/tempo-mixin-compiled/dashboards/tempo-operational.json
+      datasource: Mimir
+    tempo-reads:
+      url: https://raw.githubusercontent.com/grafana/tempo/main/operations/tempo-mixin-compiled/dashboards/tempo-reads.json
+      datasource: Mimir
+    tempo-writes:
+      url: https://raw.githubusercontent.com/grafana/tempo/main/operations/tempo-mixin-compiled/dashboards/tempo-writes.json
+      datasource: Mimir
+    # Alloy dashboard
+    alloy-monitoring:
+      gnetId: 21377
+      revision: 1
+      datasource: Mimir
+
+  argocd:
+    argocd-operational-overview:
+      gnetId: 19993
+      revision: 1
+      datasource: Mimir
+    argocd-application-overview:
+      gnetId: 19974
+      revision: 1
+      datasource: Mimir
+    argocd-notifications-overview:
+      gnetId: 19975
+      revision: 1
+      datasource: Mimir
+
+  istio:
+    istio-mesh-dashboard:
+      gnetId: 7639
+      revision: 245
+      datasource: Mimir
+    istio-control-plane-dashboard:
+      gnetId: 7645
+      revision: 245
+      datasource: Mimir
+    istio-service-dashboard:
+      gnetId: 7636
+      revision: 245
+      datasource: Mimir
+    istio-workload-dashboard:
+      gnetId: 7630
+      revision: 245
+      datasource: Mimir
+    istio-ztunnel-dashboard:
+      gnetId: 21306
+      revision: 48
+      datasource: Mimir
+
+  envoy-gateway:
+    envoy-gateway-global:
+      url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-helm/dashboards/global.json
+      datasource: Mimir
+    envoy-gateway-resources:
+      url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-helm/dashboards/resource.json
+      datasource: Mimir
+
+  cert-manager:
+    cert-manager:
+      gnetId: 20842
+      revision: 3
+      datasource: Mimir
+
+  external-secrets:
+    external-secrets:
+      gnetId: 21640
+      revision: 1
+      datasource:
+        - name: DS_METRICS
+          value: Mimir
+        - name: DS_PROMETHEUS
+          value: Mimir
+
+# Sidecar configuration for auto-loading dashboards
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    folder: /tmp/dashboards
+    defaultFolderName: null
+    searchNamespace: ALL
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
