@@ -1,0 +1,27 @@
+# ExternalSecret for Forgejo repository
+# Syncs SSH key from Azure Key Vault to ArgoCD repository secret
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: argocd-repo-forgejo
+  namespace: argocd
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: azure-keyvault-store
+    kind: ClusterSecretStore
+  target:
+    name: argocd-repo-forgejo
+    creationPolicy: Owner
+    template:
+      metadata:
+        labels:
+          argocd.argoproj.io/secret-type: repository
+      data:
+        type: git
+        url: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        sshPrivateKey: "{{ .sshPrivateKey }}"
+  data:
+    - secretKey: sshPrivateKey
+      remoteRef:
+        key: forgejo-ssh-private-key

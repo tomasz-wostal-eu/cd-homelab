@@ -1,0 +1,126 @@
+# Common values for Kargo across all environments
+
+# Image configuration
+image:
+  repository: ghcr.io/akuity/kargo
+  tag: "" # Defaults to chart appVersion
+  pullPolicy: IfNotPresent
+
+# Controller configuration
+controller:
+  enabled: true
+  replicas: 1
+
+  # Global credentials configuration
+  globalCredentials:
+    namespaces:
+      - kargo-cluster-secrets
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# API Server configuration
+api:
+  enabled: true
+  replicas: 1
+
+  service:
+    type: ClusterIP
+    port: 443
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Admin account configuration
+  adminAccount:
+    enabled: true
+    tokenTTL: 24h
+
+  # ArgoCD SSO integration
+  argocd:
+    enabled: true
+    namespace: argocd
+
+# Webhooks Server configuration
+webhooksServer:
+  enabled: true
+  replicas: 1
+
+  service:
+    type: ClusterIP
+    port: 443
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Garbage Collection configuration
+garbageCollector:
+  enabled: true
+  schedule: "0 * * * *" # Every hour
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Management Controller configuration
+managementController:
+  enabled: true
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# RBAC configuration
+rbac:
+  installClusterRoles: true
+  installClusterRoleBindings: true
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+
+# Security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}

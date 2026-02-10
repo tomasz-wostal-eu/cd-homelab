@@ -1,0 +1,25 @@
+---
+# Tailscale Ingress for Kargo
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kargo-homelab
+  namespace: kargo
+  annotations:
+    tailscale.com/tags: "tag:k8s"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: kargo-homelab.tailc90e09.ts.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kargo-api
+                port:
+                  number: 443
+  tls:
+    - hosts:
+        - kargo-homelab.tailc90e09.ts.net

@@ -3,6 +3,14 @@ global:
   logging:
     level: info
 
+# SSH known hosts configuration
+configs:
+  ssh:
+    extraHosts: |
+      forgejo.tailc90e09.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID5G5RRrnd8OGDtS09i817Icu72tO9xJtny3l5Rkpvv6
+      forgejo.tailc90e09.ts.net ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBPCdOsGzqoREkxpB60TD3Pqx9BmtrABvAogsfqF47G5tdYDkPxRQo+enIzVLHMiKBkZBDTUR51xRgr6W0EnieDk=
+      forgejo.tailc90e09.ts.net ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC41Y6vfqVYvngcZHNYSGXUnStOo7+aUQ6QZvnUOdxoOGN7R+CZ7AuN7/ANBG9ndN3UDCdsPR/OcfY3rG6xBpyA8bs6icoKYZeixF09AJYO8b1md45HhQ72+JJ84jk63I3ZYSWmLKh5XM1HDtxnE1v2a2m0oTbAW0ccWE0oXqYnFTkVoaYHE/sdf4ta1V/kLfJuUwyaJLRiHnrz0i0AbpYK3RAti/oCYgc1LDSUhOST3ZXhKmsc10gcVonB2gSIJClqXO6COWoFUoEGAQh5o9ut8fUkOlLzhUhUOtr4eVdL0nXDcbyqOkh3NCs02q+FEunc/bm156vfRCK5Hkx55xdjpo8JOyy4+fQEADM4fltTCaDKSYjpIJBh6i2wiEKSkzK4szK5QP9k2iFdJg8Rz4pchKOucYRhBgqA9f3rmQq67c8G9YM8w7AM7u+UPpHbGNsTgJ/dm8r8552/4mhyqF89VIEBmYclYnn2My6+q3XxB0VldfuUY0NmBzagEE6EyRE=
+
 # Redis HA disabled for homelab
 redis-ha:
   enabled: false

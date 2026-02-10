@@ -607,7 +607,7 @@ argocd-status:
     @echo -e "{{green}}ArgoCD Services:{{nc}}"
     @kubectl get svc -n {{argocd_namespace}}
 
-# Apply ArgoCD repository configuration
+# Apply ArgoCD repository configuration (GitHub cd-homelab)
 [group('argocd')]
 argocd-repo-apply:
     #!/usr/bin/env bash
@@ -622,6 +622,27 @@ argocd-repo-apply:
         echo -e "{{yellow}}Run 'just azure-store-apply' first.{{nc}}"
         exit 1
     fi
+
+# Apply ArgoCD Forgejo repository configuration
+[group('argocd')]
+argocd-repo-forgejo-apply:
+    #!/usr/bin/env bash
+    echo -e "{{green}}Applying ArgoCD Forgejo repository configuration...{{nc}}"
+    if kubectl get clustersecretstore azure-keyvault-store >/dev/null 2>&1; then
+        kubectl apply -f extras/local/argocd/repo-forgejo.yaml
+        echo -e "{{green}}Forgejo Repository ExternalSecret applied. Waiting for sync...{{nc}}"
+        sleep 5
+        kubectl get externalsecret -n {{argocd_namespace}}
+    else
+        echo -e "{{red}}ERROR: ClusterSecretStore 'azure-keyvault-store' not found.{{nc}}"
+        echo -e "{{yellow}}Run 'just azure-store-apply' first.{{nc}}"
+        exit 1
+    fi
+
+# Apply all ArgoCD repositories
+[group('argocd')]
+argocd-repos-apply: argocd-repo-apply argocd-repo-forgejo-apply
+    @echo -e "{{green}}All ArgoCD repositories configured.{{nc}}"
 
 # Show ArgoCD repository status
 [group('argocd')]

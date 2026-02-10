@@ -1,0 +1,36 @@
+# Homelab environment specific values for CloudNativePG
+
+# Resource limits for homelab
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Additional labels for homelab environment
+podLabels:
+  environment: "homelab"
+  region: "local"
+  type: "homelab"
+
+# Allow scheduling on all nodes
+nodeSelector: {}
+
+# Remove restrictive tolerations
+tolerations: []
+
+# Monitoring configuration
+monitoring:
+  podMonitorEnabled: false
+  grafanaDashboard:
+    create: false
+
+# Configuration
+config:
+  clusterWide: true
+  data:
+    INHERITED_ANNOTATIONS: "*"
+    INHERITED_LABELS: "*"
+    LOG_LEVEL: "info"

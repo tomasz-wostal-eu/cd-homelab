@@ -1,0 +1,66 @@
+# Common CloudNativePG configuration
+# Used across all environments
+
+# Install CRDs
+crds:
+  create: true
+
+# Run single replica for homelab
+replicaCount: 1
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Service account
+serviceAccount:
+  create: true
+
+# RBAC
+rbac:
+  create: true
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+
+# Monitoring
+monitoring:
+  podMonitorEnabled: false
+  grafanaDashboard:
+    create: false
+
+# Config
+config:
+  # Watch all namespaces
+  clusterWide: true
+
+  # Data configuration
+  data:
+    INHERITED_ANNOTATIONS: "*"
+    INHERITED_LABELS: "*"
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
