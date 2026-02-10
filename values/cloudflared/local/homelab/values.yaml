@@ -9,4 +9,4 @@ cloudflare:
 
   ingress:
     - hostname: grafana.devopslaboratory.org
-      service: http://envoy-cloudflared-cloudflare-gateway.cloudflared.svc.cluster.local:80
+      service: http://grafana.monitoring.svc.cluster.local:80
