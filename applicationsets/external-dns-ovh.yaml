@@ -1,0 +1,96 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: external-dns-ovh
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: external-dns
+            helmRevision: "1.*.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: external-dns-ovh-{{ .name }}
+      labels:
+        app.kubernetes.io/name: external-dns-ovh
+        app.kubernetes.io/instance: external-dns-ovh-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+        argocd.argoproj.io/sync-wave: "0"
+    spec:
+      project: platform-networking
+      sources:
+        - repoURL: https://kubernetes-sigs.github.io/external-dns
+          chart: external-dns
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: external-dns-ovh
+            valueFiles:
+              - $values/values/external-dns-ovh/common/values.yaml
+              - $values/values/external-dns-ovh/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          path: extras/{{ .region }}/external-dns-ovh
+          directory:
+            recurse: true
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .spec.data[]?.remoteRef.conversionStrategy
+            - .spec.data[]?.remoteRef.decodingStrategy
+            - .spec.data[]?.remoteRef.metadataPolicy
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 10m
+        managedNamespaceMetadata:
+          labels:
+            owner: argocd
+            app.kubernetes.io/part-of: external-dns-ovh
+            region: "{{ .region }}"
+            env: "{{ .env }}"
+          annotations:
+            argocd.argoproj.io/managed-by: "external-dns-ovh-{{ .name }}"
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=false
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true

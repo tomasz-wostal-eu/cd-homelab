@@ -1,0 +1,35 @@
+# External DNS Cloudflare - homelab configuration
+
+# Domain filters - add your Cloudflare managed domains
+domainFilters:
+  - "wostal.eu"
+
+# Sources to watch for DNS records
+sources:
+  - service
+  - ingress
+  - gateway-httproute
+
+# Cloudflare provider
+provider:
+  name: cloudflare
+
+# Sync policy - will create and delete records
+policy: sync
+
+# Cloudflare API token from ExternalSecret
+env:
+  - name: CF_API_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: cloudflare-api-token
+        key: cloudflare_api_token
+
+# Log level
+logLevel: info
+
+# Interval between sync runs
+interval: 1m
+
+# TXT record owner ID
+txtOwnerId: homelab

@@ -1,0 +1,53 @@
+# Common Reloader configuration
+# Stakater Reloader - auto restart pods on ConfigMap/Secret changes
+
+reloader:
+  # Watch all namespaces globally
+  watchGlobally: true
+
+  # Reload strategy - only reload on updates (not create/delete)
+  reloadOnCreate: false
+  reloadOnDelete: false
+
+  # Watch both Secrets and ConfigMaps
+  ignoreSecrets: false
+  ignoreConfigMaps: false
+  ignoreJobs: false
+  ignoreCronJobs: false
+
+  # Auto reload all resources (disabled - use annotations for explicit control)
+  autoReloadAll: false
+
+  # Enable HA mode (leadership election) - disabled for single replica
+  enableHA: false
+
+  # Read-only root filesystem for security
+  readOnlyRootFileSystem: true
+
+  # Disable profiling endpoint
+  enablePProf: false
+
+# Deployment configuration
+replicas: 1
+revisionHistoryLimit: 2
+
+# Resource limits and requests
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# RBAC configuration
+rbac:
+  enabled: true
+
+# Service account
+serviceAccount:
+  create: true
+
+# Monitoring disabled for homelab
+podMonitor:
+  enabled: false

@@ -1,0 +1,46 @@
+# External DNS OVH - homelab configuration
+
+# Domain filters - add your OVH managed domains
+domainFilters:
+  - "wostal.eu"
+  - "wostal.cloud"
+  - "wostal.academy"
+
+# Sources to watch for DNS records
+sources:
+  - service
+  - ingress
+
+# OVH provider
+provider:
+  name: ovh
+
+# Sync policy - will create and delete records
+policy: sync
+
+# OVH API credentials from ExternalSecret
+env:
+  - name: OVH_APPLICATION_KEY
+    valueFrom:
+      secretKeyRef:
+        name: ovh-api
+        key: ovh_application_key
+  - name: OVH_APPLICATION_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: ovh-api
+        key: ovh_application_secret
+  - name: OVH_CONSUMER_KEY
+    valueFrom:
+      secretKeyRef:
+        name: ovh-api
+        key: ovh_consumer_key
+
+# Log level
+logLevel: info
+
+# Interval between sync runs
+interval: 1m
+
+# TXT record owner ID
+txtOwnerId: homelab-ovh

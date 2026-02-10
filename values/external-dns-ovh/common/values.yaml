@@ -1,0 +1,32 @@
+# External DNS OVH - common configuration
+nameOverride: external-dns-ovh
+fullnameOverride: external-dns-ovh
+
+# Prometheus metrics configuration
+serviceMonitor:
+  enabled: false
+
+# Service annotations for Prometheus discovery
+service:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "7979"
+    prometheus.io/path: "/metrics"
+
+# Resources
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# Security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL

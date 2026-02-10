@@ -1,0 +1,10 @@
+# Reloader configuration for homelab
+# Minimal resources for homelab environment
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
