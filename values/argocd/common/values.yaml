@@ -18,15 +18,28 @@ redis-ha:
 # Controller settings
 controller:
   replicas: 1
+  metrics:
+    enabled: true
+    applicationLabels:
+      enabled: true
+
+# Server
+server:
+  metrics:
+    enabled: true
 
 # Repo server
 repoServer:
   replicas: 1
+  metrics:
+    enabled: true
 
 # ApplicationSet controller
 applicationSet:
   enabled: true
   replicas: 1
+  metrics:
+    enabled: true
 
 # Notifications (disabled)
 notifications:
