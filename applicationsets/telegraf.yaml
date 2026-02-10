@@ -41,10 +41,10 @@ spec:
             valueFiles:
               - $values/values/telegraf/common/values.yaml
               - $values/values/telegraf/{{ .region }}/{{ .env }}/values.yaml
-        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           ref: values
-        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           path: extras/{{ .region }}/telegraf
       destination:
