@@ -22,17 +22,26 @@ controller:
     enabled: true
     applicationLabels:
       enabled: true
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8082"
 
 # Server
 server:
   metrics:
     enabled: true
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8083"
 
 # Repo server
 repoServer:
   replicas: 1
   metrics:
     enabled: true
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8084"
 
 # ApplicationSet controller
 applicationSet:
@@ -40,6 +49,9 @@ applicationSet:
   replicas: 1
   metrics:
     enabled: true
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
 
 # Notifications (disabled)
 notifications:
