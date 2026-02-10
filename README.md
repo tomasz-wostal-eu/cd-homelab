@@ -24,64 +24,95 @@ Production-grade Kubernetes homelab running locally on macOS/Linux with full Git
 
 ## Architecture
 
+```mermaid
+graph TB
+    subgraph Host["macOS / Linux"]
+        subgraph Runtime["Podman (rootful) / Docker Desktop"]
+            subgraph Cluster["k3d cluster: homelab"]
+                Server["k3d-homelab-server-0"]
+                Agent0["k3d-homelab-agent-0"]
+                Agent1["k3d-homelab-agent-1"]
+                Agent2["k3d-homelab-agent-2"]
+            end
+        end
+    end
+
+    subgraph Core["Platform Core"]
+        CertManager["cert-manager"]
+        SealedSecrets["Sealed Secrets"]
+        ExternalSecrets["External Secrets"]
+    end
+
+    subgraph Networking["Platform Networking"]
+        IstioBase["istio-base"]
+        IstioCNI["istio-cni"]
+        Istiod["istiod"]
+        Ztunnel["ztunnel"]
+        EnvoyGW["Envoy Gateway"]
+        Tailscale["Tailscale Operator"]
+    end
+
+    subgraph Observability["Observability Stack"]
+        Alloy["Alloy<br/>(collector)"]
+        Mimir["Mimir<br/>(metrics)"]
+        Loki["Loki<br/>(logs)"]
+        Tempo["Tempo<br/>(traces)"]
+        Grafana["Grafana<br/>(dashboards)"]
+        InfluxDB["InfluxDB<br/>(MQTT data)"]
+        Telegraf["Telegraf<br/>(MQTT parser)"]
+    end
+
+    subgraph Apps["Applications"]
+        EMQX["EMQX<br/>(MQTT broker)"]
+        HA["Home Assistant"]
+    end
+
+    ExternalSecrets --> AzureKV["Azure Key Vault"]
+
+    Alloy --> Mimir
+    Alloy --> Loki
+    Alloy --> Tempo
+    Mimir --> Grafana
+    Loki --> Grafana
+    Tempo --> Grafana
+    InfluxDB --> Grafana
+
+    HA -->|MQTT bridge| EMQX
+    EMQX --> Telegraf
+    Telegraf --> InfluxDB
+
+    EnvoyGW --> Tailscale
+    Tailscale -->|MagicDNS| Internet["Internet"]
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  macOS / Linux                                                              │
-│  └── Podman (rootful) or Docker Desktop                                     │
-│      └── k3d cluster "homelab"                                              │
-│          ├── k3d-homelab-server-0                                           │
-│          ├── k3d-homelab-agent-0                                            │
-│          ├── k3d-homelab-agent-1                                            │
-│          └── k3d-homelab-agent-2                                            │
-└─────────────────────────────────────────────────────────────────────────────┘
 
-┌─ Platform Core ─────────────────────────────────────────────────────────────┐
-│  cert-manager        Sealed Secrets        External Secrets                 │
-│  (TLS certs)         (encrypted)           (Azure Key Vault)                │
-└─────────────────────────────────────────────────────────────────────────────┘
+## Component Flow
 
-┌─ Platform Networking ───────────────────────────────────────────────────────┐
-│  Istio Ambient                              Envoy Gateway                   │
-│  ├── istio-base (CRDs)                      (Gateway API)                   │
-│  ├── istio-cni                                    │                         │
-│  ├── istiod (control plane)                       ▼                         │
-│  └── ztunnel (L4 mTLS)                    ┌──────────────┐                  │
-│           │                               │   Gateway    │                  │
-│           ▼                               │  HTTP/TCP/TLS│                  │
-│    ┌─────────────┐                        └──────────────┘                  │
-│    │  Workloads  │◄── mTLS (automatic) ──►     │                            │
-│    └─────────────┘                              ▼                           │
-│                                          Tailscale Ingress                  │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph GitOps
+        Forgejo["Forgejo<br/>(Git repo)"]
+        ArgoCD["ArgoCD"]
+    end
 
-┌─ Observability ─────────────────────────────────────────────────────────────┐
-│                                                                             │
-│   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐                 │
-│   │  Alloy  │───►│  Mimir  │    │  Loki   │    │  Tempo  │                 │
-│   │(collect)│    │(metrics)│    │ (logs)  │    │(traces) │                 │
-│   └─────────┘    └────┬────┘    └────┬────┘    └────┬────┘                 │
-│        │              │              │              │                       │
-│        │              └──────────────┼──────────────┘                       │
-│        │                             ▼                                      │
-│        │                      ┌───────────┐                                 │
-│        │                      │  Grafana  │                                 │
-│        │                      │(dashboard)│                                 │
-│        │                      └───────────┘                                 │
-│        │                                                                    │
-│   ┌────┴────┐    ┌──────────┐    ┌──────────┐                              │
-│   │Telegraf │───►│ InfluxDB │◄───│   EMQX   │◄── Home Assistant            │
-│   │  (MQTT) │    │  (MQTT)  │    │  (MQTT)  │    (MQTT bridge)             │
-│   └─────────┘    └──────────┘    └──────────┘                              │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+    subgraph Secrets
+        AKV["Azure Key Vault"]
+        ES["External Secrets"]
+        SS["Sealed Secrets"]
+    end
 
-┌─ Applications ──────────────────────────────────────────────────────────────┐
-│  EMQX (MQTT Broker)                                                         │
-│  ├── Dashboard: https://emqx-homelab.tailc90e09.ts.net                      │
-│  ├── MQTT: 1883 (plain), 8883 (TLS)                                         │
-│  ├── WebSocket: 8083, 8084 (TLS)                                            │
-│  └── Bridge: Home Assistant → EMQX → Telegraf → InfluxDB                    │
-└─────────────────────────────────────────────────────────────────────────────┘
+    subgraph Ingress
+        EG["Envoy Gateway"]
+        TS["Tailscale"]
+    end
+
+    Forgejo -->|SSH| ArgoCD
+    ArgoCD -->|deploy| K8s["Kubernetes"]
+    AKV --> ES
+    ES --> K8s
+    SS --> K8s
+    K8s --> EG
+    EG --> TS
+    TS -->|HTTPS| Users["Users"]
 ```
 
 ## Prerequisites
@@ -174,7 +205,58 @@ just events             # Recent cluster events
 
 ## Deployment Order
 
-ApplicationSets use `sync-wave` annotations for ordered deployment:
+```mermaid
+flowchart LR
+    subgraph Wave-3["-3"]
+        ArgoCD["ArgoCD"]
+    end
+
+    subgraph Wave-2["-2"]
+        CertManager["cert-manager"]
+        SealedSecrets["Sealed Secrets"]
+    end
+
+    subgraph Wave-1["-1"]
+        ExternalSecrets["External Secrets"]
+        IstioBase["istio-base"]
+    end
+
+    subgraph Wave0["0"]
+        IstioCNI["istio-cni"]
+        Tailscale["Tailscale"]
+    end
+
+    subgraph Wave1["1"]
+        Istiod["istiod"]
+        EMQX["EMQX"]
+    end
+
+    subgraph Wave2["2"]
+        Ztunnel["ztunnel"]
+    end
+
+    subgraph Wave3["3"]
+        EnvoyGW["Envoy Gateway"]
+    end
+
+    subgraph Wave4["4"]
+        Mimir["Mimir"]
+        Loki["Loki"]
+        Tempo["Tempo"]
+        InfluxDB["InfluxDB"]
+    end
+
+    subgraph Wave5["5"]
+        Alloy["Alloy"]
+        Telegraf["Telegraf"]
+    end
+
+    subgraph Wave6["6"]
+        Grafana["Grafana"]
+    end
+
+    Wave-3 --> Wave-2 --> Wave-1 --> Wave0 --> Wave1 --> Wave2 --> Wave3 --> Wave4 --> Wave5 --> Wave6
+```
 
 | Wave | Component | Description |
 |------|-----------|-------------|
@@ -258,31 +340,66 @@ cd-homelab/
 
 ### Data Flow
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Kubernetes  │────►│    Alloy    │────►│    Mimir    │
-│   Metrics   │     │ (DaemonSet) │     │  (metrics)  │
-└─────────────┘     └──────┬──────┘     └─────────────┘
-                          │
-┌─────────────┐           │             ┌─────────────┐
-│  Pod Logs   │───────────┼────────────►│    Loki     │
-└─────────────┘           │             │   (logs)    │
-                          │             └─────────────┘
-┌─────────────┐           │             ┌─────────────┐
-│   Traces    │───────────┴────────────►│   Tempo     │
-│  (OTLP)     │                         │  (traces)   │
-└─────────────┘                         └─────────────┘
+```mermaid
+flowchart TB
+    subgraph Sources["Data Sources"]
+        Pods["Kubernetes Pods"]
+        Kubelet["Kubelet"]
+        cAdvisor["cAdvisor"]
+        PodLogs["Pod Logs"]
+        OTLP["OTLP Traces"]
+        MQTT["MQTT Messages"]
+    end
 
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│    EMQX     │────►│  Telegraf   │────►│  InfluxDB   │
-│   (MQTT)    │     │  (parser)   │     │ (time-series)│
-└─────────────┘     └─────────────┘     └─────────────┘
-                                              │
-                                              ▼
-                                        ┌─────────────┐
-                                        │   Grafana   │
-                                        │ (dashboard) │
-                                        └─────────────┘
+    subgraph Collectors["Collectors"]
+        Alloy["Alloy<br/>(DaemonSet)"]
+        Telegraf["Telegraf"]
+    end
+
+    subgraph Storage["Storage Backends"]
+        Mimir["Mimir<br/>(metrics)"]
+        Loki["Loki<br/>(logs)"]
+        Tempo["Tempo<br/>(traces)"]
+        InfluxDB["InfluxDB<br/>(MQTT data)"]
+    end
+
+    subgraph Visualization["Visualization"]
+        Grafana["Grafana"]
+    end
+
+    Pods -->|metrics| Alloy
+    Kubelet -->|metrics| Alloy
+    cAdvisor -->|metrics| Alloy
+    PodLogs -->|logs| Alloy
+    OTLP -->|traces| Alloy
+
+    Alloy -->|remote write| Mimir
+    Alloy -->|push| Loki
+    Alloy -->|push| Tempo
+
+    MQTT --> Telegraf
+    Telegraf --> InfluxDB
+
+    Mimir --> Grafana
+    Loki --> Grafana
+    Tempo --> Grafana
+    InfluxDB --> Grafana
+```
+
+### MQTT Data Pipeline
+
+```mermaid
+flowchart LR
+    HA["Home Assistant<br/>(Zigbee devices)"]
+    EMQX["EMQX<br/>(MQTT Broker)"]
+    Telegraf["Telegraf<br/>(JSON parser)"]
+    InfluxDB["InfluxDB<br/>(time-series)"]
+    Grafana["Grafana<br/>(dashboards)"]
+
+    HA -->|MQTT bridge| EMQX
+    EMQX -->|subscribe| Telegraf
+    Telegraf -->|write| InfluxDB
+    InfluxDB -->|query| Grafana
 ```
 
 ### Adding Metrics to Your App
@@ -294,6 +411,54 @@ annotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8080"
   prometheus.io/path: "/metrics"  # optional
+```
+
+## Networking
+
+### Service Mesh (Istio Ambient)
+
+```mermaid
+flowchart TB
+    subgraph Node["Kubernetes Node"]
+        subgraph Ztunnel["ztunnel (per-node)"]
+            L4["L4 Proxy"]
+        end
+
+        Pod1["Pod A"]
+        Pod2["Pod B"]
+    end
+
+    Pod1 <-->|mTLS| L4
+    L4 <-->|mTLS| Pod2
+
+    Istiod["istiod<br/>(control plane)"] -->|config| Ztunnel
+```
+
+### Gateway API
+
+```mermaid
+flowchart LR
+    Internet["Internet"]
+
+    subgraph Tailscale["Tailscale Network"]
+        TS["Tailscale Ingress<br/>(MagicDNS)"]
+    end
+
+    subgraph Cluster["Kubernetes"]
+        GW["Gateway<br/>(Envoy)"]
+        HTTPRoute["HTTPRoute"]
+        TCPRoute["TCPRoute"]
+        TLSRoute["TLSRoute"]
+
+        SvcA["Service A"]
+        SvcB["Service B"]
+    end
+
+    Internet --> TS
+    TS --> GW
+    GW --> HTTPRoute --> SvcA
+    GW --> TCPRoute --> SvcB
+    GW --> TLSRoute --> SvcB
 ```
 
 ## Troubleshooting
