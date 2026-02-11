@@ -41,7 +41,7 @@ datasources:
       - name: Prometheus
         type: prometheus
         uid: Prometheus
-        url: http://prometheus-server.monitoring.svc:80
+        url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
         access: proxy
         isDefault: true
         jsonData:

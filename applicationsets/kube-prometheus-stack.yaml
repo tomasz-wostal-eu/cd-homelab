@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: prometheus
+  name: kube-prometheus-stack
   namespace: argocd
 spec:
   goTemplate: true
@@ -13,16 +13,16 @@ spec:
           - name: homelab
             cluster: https://kubernetes.default.svc
             namespace: monitoring
-            helmRevision: "27.*"
+            helmRevision: "72.*"
             env: homelab
             region: local
             type: homelab
   template:
     metadata:
-      name: prometheus-{{ .name }}
+      name: kube-prometheus-stack-{{ .name }}
       labels:
-        app.kubernetes.io/name: prometheus
-        app.kubernetes.io/instance: prometheus-{{ .name }}
+        app.kubernetes.io/name: kube-prometheus-stack
+        app.kubernetes.io/instance: kube-prometheus-stack-{{ .name }}
         env: "{{ .env }}"
         cluster: "{{ .name }}"
         region: "{{ .region }}"
@@ -34,16 +34,19 @@ spec:
       project: platform-observability
       sources:
         - repoURL: https://prometheus-community.github.io/helm-charts
-          chart: prometheus
+          chart: kube-prometheus-stack
           targetRevision: "{{ .helmRevision }}"
           helm:
-            releaseName: prometheus
+            releaseName: kube-prometheus-stack
             valueFiles:
-              - $values/values/prometheus/common/values.yaml
-              - $values/values/prometheus/{{ .region }}/{{ .env }}/values.yaml
+              - $values/values/kube-prometheus-stack/common/values.yaml
+              - $values/values/kube-prometheus-stack/{{ .region }}/{{ .env }}/values.yaml
         - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           ref: values
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          path: extras/{{ .region }}/kube-prometheus-stack
       destination:
         server: "{{ .cluster }}"
         namespace: "{{ .namespace }}"
@@ -75,7 +78,7 @@ spec:
             env: "{{ .env }}"
             istio.io/dataplane-mode: ambient
           annotations:
-            argocd.argoproj.io/managed-by: "prometheus-{{ .name }}"
+            argocd.argoproj.io/managed-by: "kube-prometheus-stack-{{ .name }}"
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true

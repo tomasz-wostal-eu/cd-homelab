@@ -1,90 +1,52 @@
-# Prometheus configuration for homelab
-# Single binary, local retention, Kubernetes service discovery
+# kube-prometheus-stack configuration for homelab
+# Replaces standalone prometheus + kube-state-metrics
 
-# Server configuration
-server:
+# Prometheus configuration
+prometheus:
   enabled: true
+  prometheusSpec:
+    # Retention
+    retention: 15d
 
-  # Retention - 15 days
-  retention: "15d"
+    # Storage
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: nfs-rwx
+          accessModes:
+            - ReadWriteMany
+          resources:
+            requests:
+              storage: 20Gi
 
-  # Persistent storage
-  persistentVolume:
-    enabled: true
-    size: 20Gi
-    storageClass: "nfs-rwx"
+    # Scrape interval
+    scrapeInterval: 30s
+    evaluationInterval: 30s
 
-  # Resources
-  resources:
-    requests:
-      cpu: 100m
-      memory: 512Mi
-    limits:
-      cpu: 1000m
-      memory: 4Gi
+    # Allow ServiceMonitors from all namespaces
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
 
-  # Pod annotations for Istio ambient
-  podAnnotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "9090"
-
-  # Global scrape config
-  global:
-    scrape_interval: 30s
-    scrape_timeout: 10s
-    evaluation_interval: 30s
-
-# Alertmanager - disabled for homelab
-alertmanager:
-  enabled: false
-
-# Kube-state-metrics - useful for k8s metrics
-kube-state-metrics:
-  enabled: true
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-
-# Prometheus node exporter - host metrics
-prometheus-node-exporter:
-  enabled: true
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 64Mi
-
-# Pushgateway - disabled
-prometheus-pushgateway:
-  enabled: false
-
-# ConfigMap reload - auto-reload on config changes
-configmapReload:
-  prometheus:
-    enabled: true
+    # Resources
     resources:
       requests:
-        cpu: 5m
-        memory: 16Mi
+        cpu: 100m
+        memory: 512Mi
       limits:
-        cpu: 50m
-        memory: 32Mi
+        cpu: 1000m
+        memory: 4Gi
 
-# Scrape configs
-serverFiles:
-  prometheus.yml:
-    scrape_configs:
-      # Prometheus self-monitoring
-      - job_name: 'prometheus'
-        static_configs:
-          - targets: ['localhost:9090']
+    # Pod annotations for Istio ambient
+    podMetadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
 
+    # Additional scrape configs for annotation-based discovery (backward compatibility)
+    additionalScrapeConfigs:
       # Kubernetes API server
       - job_name: 'kubernetes-apiservers'
         kubernetes_sd_configs:
@@ -131,21 +93,17 @@ serverFiles:
         kubernetes_sd_configs:
           - role: pod
         relabel_configs:
-          # Keep only pods with prometheus.io/scrape: "true"
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
             action: keep
             regex: true
-          # Use custom scheme if specified
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
             action: replace
             target_label: __scheme__
             regex: (https?)
-          # Use custom path if specified
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
             action: replace
             target_label: __metrics_path__
             regex: (.+)
-          # Use custom port if specified
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
             action: replace
             target_label: __address__
@@ -156,7 +114,6 @@ serverFiles:
             target_label: __address__
             regex: (\d+);((([0-9]+?)(\.|$)){4})
             replacement: '$2:$1'
-          # Add labels
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
           - source_labels: [__meta_kubernetes_namespace]
@@ -168,33 +125,6 @@ serverFiles:
           - source_labels: [__meta_kubernetes_pod_node_name]
             action: replace
             target_label: node
-
-      # EMQX - dedicated job for dashboard compatibility
-      - job_name: 'emqx'
-        kubernetes_sd_configs:
-          - role: pod
-            namespaces:
-              names:
-                - emqx
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_label_app]
-            action: keep
-            regex: emqx
-          - source_labels: [__meta_kubernetes_pod_ip]
-            action: replace
-            target_label: __address__
-            regex: (.+)
-            replacement: '$1:18083'
-          - source_labels: [__meta_kubernetes_namespace]
-            action: replace
-            target_label: namespace
-          - source_labels: [__meta_kubernetes_pod_name]
-            action: replace
-            target_label: pod
-          - source_labels: [__meta_kubernetes_pod_name]
-            action: replace
-            target_label: instance
-        metrics_path: /api/v5/prometheus/stats
 
       # Services with prometheus.io/scrape annotation
       - job_name: 'kubernetes-services'
@@ -225,3 +155,68 @@ serverFiles:
           - source_labels: [__meta_kubernetes_service_name]
             action: replace
             target_label: service
+
+# Alertmanager - disabled for homelab
+alertmanager:
+  enabled: false
+
+# Default rules - disabled (no alerts)
+defaultRules:
+  create: false
+
+# Grafana - disabled (we have our own)
+grafana:
+  enabled: false
+
+# kube-state-metrics - enabled (replaces standalone)
+kubeStateMetrics:
+  enabled: true
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Prometheus node exporter - enabled
+nodeExporter:
+  enabled: true
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# Prometheus Operator
+prometheusOperator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Disable components not needed for homelab
+kubeApiServer:
+  enabled: true
+kubelet:
+  enabled: true
+kubeControllerManager:
+  enabled: false  # Not accessible in k3d
+coreDns:
+  enabled: true
+kubeEtcd:
+  enabled: false  # Not accessible in k3d
+kubeScheduler:
+  enabled: false  # Not accessible in k3d
+kubeProxy:
+  enabled: true
