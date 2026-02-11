@@ -10,84 +10,8 @@ emqxConfig:
 # Load dashboard credentials (only dashboard password, NOT bridge config)
 envFromSecret: "homelab-emqx-dashboard"
 
-# Sidecar to configure MQTT bridge via API (env vars don't work for bridges in EMQX 5.x)
-extraContainers:
-  - name: bridge-configurator
-    image: curlimages/curl:8.5.0
-    envFrom:
-      - secretRef:
-          name: homelab-emqx-bridge
-    command:
-      - /bin/sh
-      - -c
-      - |
-        # Wait for EMQX API to be ready
-        echo "Waiting for EMQX API..."
-        until curl -sf http://localhost:18083/api/v5/status > /dev/null 2>&1; do
-          sleep 5
-        done
-        echo "EMQX API is ready"
-
-        # Reset admin password (needed on first start)
-        curl -sf -X POST http://localhost:18083/api/v5/login \
-          -H "Content-Type: application/json" \
-          -d "{\"username\":\"admin\",\"password\":\"public\"}" > /dev/null 2>&1 && \
-        echo "Using default password" || echo "Password already changed"
-
-        # Get auth token
-        TOKEN=$(curl -sf -X POST http://localhost:18083/api/v5/login \
-          -H "Content-Type: application/json" \
-          -d "{\"username\":\"admin\",\"password\":\"${EMQX_DASHBOARD_PASSWORD}\"}" | \
-          grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-
-        if [ -z "$TOKEN" ]; then
-          echo "Failed to get token, trying to set password..."
-          # Try with default password and change it
-          TOKEN=$(curl -sf -X POST http://localhost:18083/api/v5/login \
-            -H "Content-Type: application/json" \
-            -d '{"username":"admin","password":"public"}' | \
-            grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-        fi
-
-        if [ -z "$TOKEN" ]; then
-          echo "ERROR: Cannot authenticate to EMQX API"
-          sleep infinity
-        fi
-
-        # Check if bridge exists
-        BRIDGE_EXISTS=$(curl -sf -H "Authorization: Bearer $TOKEN" \
-          http://localhost:18083/api/v5/bridges/mqtt:ha_bridge 2>/dev/null | grep -c "ha_bridge" || echo "0")
-
-        if [ "$BRIDGE_EXISTS" = "0" ]; then
-          echo "Creating MQTT bridge..."
-          curl -sf -X POST http://localhost:18083/api/v5/bridges \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $TOKEN" \
-            -d "{
-              \"type\": \"mqtt\",
-              \"name\": \"ha_bridge\",
-              \"enable\": true,
-              \"server\": \"${BRIDGE_SERVER}\",
-              \"proto_ver\": \"v5\",
-              \"username\": \"${BRIDGE_USERNAME}\",
-              \"password\": \"${BRIDGE_PASSWORD}\",
-              \"clean_start\": false,
-              \"ingress\": {
-                \"remote\": {\"topic\": \"#\", \"qos\": 1},
-                \"local\": {
-                  \"topic\": \"\${topic}\",
-                  \"qos\": \"\${qos}\",
-                  \"retain\": \"\${retain}\",
-                  \"payload\": \"\${payload}\"
-                }
-              }
-            }" && echo "Bridge created successfully" || echo "Bridge creation failed"
-        else
-          echo "Bridge already exists"
-        fi
-
-        echo "Bridge configurator done, sleeping..."
-        sleep infinity
+# Bridge is configured via Job (see extras/local/emqx/bridge-config-job.yaml)
+# Chart doesn't support extraContainers/sidecars
 
 # Persistence using NFS StorageClass (RWX)
 persistence:

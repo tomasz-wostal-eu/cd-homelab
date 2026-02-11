@@ -1,0 +1,99 @@
+---
+# Job to configure MQTT bridge after EMQX starts
+# Runs once and configures bridge via EMQX API
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: emqx-bridge-config
+  namespace: emqx
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: bridge-configurator
+          image: curlimages/curl:8.5.0
+          envFrom:
+            - secretRef:
+                name: homelab-emqx-bridge
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              # Wait for EMQX API to be ready
+              echo "Waiting for EMQX API..."
+              until curl -sf http://emqx.emqx.svc.cluster.local:18083/api/v5/status > /dev/null 2>&1; do
+                echo "EMQX not ready, waiting..."
+                sleep 5
+              done
+              echo "EMQX API is ready"
+
+              # Get auth token (try custom password first, then default)
+              echo "Authenticating..."
+              TOKEN=$(curl -sf -X POST http://emqx.emqx.svc.cluster.local:18083/api/v5/login \
+                -H "Content-Type: application/json" \
+                -d "{\"username\":\"admin\",\"password\":\"${EMQX_DASHBOARD_PASSWORD}\"}" | \
+                grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+
+              if [ -z "$TOKEN" ]; then
+                echo "Trying default password..."
+                TOKEN=$(curl -sf -X POST http://emqx.emqx.svc.cluster.local:18083/api/v5/login \
+                  -H "Content-Type: application/json" \
+                  -d '{"username":"admin","password":"public"}' | \
+                  grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+              fi
+
+              if [ -z "$TOKEN" ]; then
+                echo "ERROR: Cannot authenticate to EMQX API"
+                exit 1
+              fi
+              echo "Authenticated successfully"
+
+              # Check if bridge exists
+              echo "Checking if bridge exists..."
+              BRIDGE_STATUS=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges/mqtt:ha_bridge 2>/dev/null || echo "not_found")
+
+              if echo "$BRIDGE_STATUS" | grep -q "ha_bridge"; then
+                echo "Bridge already exists, skipping creation"
+                exit 0
+              fi
+
+              echo "Creating MQTT bridge to Home Assistant..."
+              RESULT=$(curl -sf -X POST http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $TOKEN" \
+                -d "{
+                  \"type\": \"mqtt\",
+                  \"name\": \"ha_bridge\",
+                  \"enable\": true,
+                  \"server\": \"${BRIDGE_SERVER}\",
+                  \"proto_ver\": \"v5\",
+                  \"username\": \"${BRIDGE_USERNAME}\",
+                  \"password\": \"${BRIDGE_PASSWORD}\",
+                  \"clean_start\": false,
+                  \"ingress\": {
+                    \"remote\": {\"topic\": \"#\", \"qos\": 1},
+                    \"local\": {
+                      \"topic\": \"\${topic}\",
+                      \"qos\": \"\${qos}\",
+                      \"retain\": \"\${retain}\",
+                      \"payload\": \"\${payload}\"
+                    }
+                  }
+                }" 2>&1)
+
+              if echo "$RESULT" | grep -q "ha_bridge"; then
+                echo "Bridge created successfully!"
+              else
+                echo "Bridge creation failed: $RESULT"
+                exit 1
+              fi
