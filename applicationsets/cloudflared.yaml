@@ -43,6 +43,13 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: cloudflared
+      ignoreDifferences:
+        - group: ""
+          kind: Secret
+          name: cloudflared-credentials
+          jsonPointers:
+            - /data
+            - /stringData
       syncPolicy:
         automated:
           prune: true

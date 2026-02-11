@@ -1,0 +1,31 @@
+---
+# Ingress for External DNS to create Cloudflare CNAME
+# External DNS will create: grafana.devopslaboratory.org -> <tunnel-id>.cfargotunnel.com
+#
+# Tunnel: macbook-air (9f0067e6-dfcb-4bc1-a12f-751763b7a14a)
+#
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-cloudflare
+  namespace: monitoring
+  annotations:
+    # External DNS annotations
+    external-dns.alpha.kubernetes.io/hostname: grafana.devopslaboratory.org
+    external-dns.alpha.kubernetes.io/target: 9f0067e6-dfcb-4bc1-a12f-751763b7a14a.cfargotunnel.com
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+spec:
+  # Using a non-existent class - this Ingress is only for External DNS
+  # The actual routing happens through Cloudflare Tunnel
+  ingressClassName: external-dns-only
+  rules:
+    - host: grafana.devopslaboratory.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80

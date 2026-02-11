@@ -1,6 +1,21 @@
-# Cloudflare Tunnel common configuration
+# Cloudflare Tunnel (locally-managed) common configuration
+# Ingress rules configured in values, DNS via External DNS
+
+image:
+  repository: cloudflare/cloudflared
+  pullPolicy: IfNotPresent
+  tag: "2024.8.3"
 
 replicaCount: 1
+
+# Credentials from ExternalSecret
+cloudflare:
+  secretName: cloudflared-credentials
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "2000"
+  prometheus.io/path: "/metrics"
 
 resources:
   requests:
@@ -10,6 +25,13 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-podAnnotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "2000"
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+
+podSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

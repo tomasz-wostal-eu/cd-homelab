@@ -1,12 +1,12 @@
 # Cloudflared homelab configuration
+# Ingress rules for services exposed via Cloudflare Tunnel
 
 cloudflare:
-  account: "588987ca16ff5dc7e60391ce0c9a9f38"
-  tunnelName: "macbook-air"
-  tunnelId: "9f0067e6-dfcb-4bc1-a12f-751763b7a14a"
-  # Secret from ExternalSecret
-  secretName: cloudflared-tunnel-credentials
-
+  # Credentials from ExternalSecret
+  secretName: cloudflared-credentials
+  # Ingress rules - routed through tunnel
   ingress:
     - hostname: grafana.devopslaboratory.org
       service: http://grafana.monitoring.svc.cluster.local:80
+    # Catch-all rule (required) - returns 404 for unmatched requests
+    - service: http_status:404
