@@ -1,5 +1,21 @@
 ---
-# HTTPRoute for Grafana via Cloudflare Tunnel
+# DNSEndpoint for External DNS - creates CNAME to Cloudflare Tunnel
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: grafana-dns
+  namespace: monitoring
+  annotations:
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+spec:
+  endpoints:
+    - dnsName: grafana.devopslaboratory.org
+      recordTTL: 300
+      recordType: CNAME
+      targets:
+        - 9f0067e6-dfcb-4bc1-a12f-751763b7a14a.cfargotunnel.com
+---
+# HTTPRoute for Grafana via Istio Gateway
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
