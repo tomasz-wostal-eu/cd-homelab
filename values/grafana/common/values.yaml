@@ -234,7 +234,7 @@ dashboards:
       revision: 2
       datasource:
         - name: DS_PROMETHEUS
-          value: Prometheus
+          value: prometheus
 
   cnpg:
     cnpg-cluster:
