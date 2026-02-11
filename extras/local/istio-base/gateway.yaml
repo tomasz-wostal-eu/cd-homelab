@@ -1,0 +1,22 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: homelab-gateway
+  namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    # External DNS creates CNAME to Cloudflare Tunnel
+    external-dns.alpha.kubernetes.io/hostname: grafana.devopslaboratory.org
+    external-dns.alpha.kubernetes.io/target: 9f0067e6-dfcb-4bc1-a12f-751763b7a14a.cfargotunnel.com
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: grafana-http
+      hostname: grafana.devopslaboratory.org
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All

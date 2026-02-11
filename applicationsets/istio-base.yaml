@@ -47,6 +47,11 @@ spec:
         - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           ref: values
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          path: extras/{{ .region }}/istio-base
+          directory:
+            recurse: true
       destination:
         server: "{{ .cluster }}"
         namespace: "{{ .namespace }}"
