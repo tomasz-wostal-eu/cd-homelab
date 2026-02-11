@@ -169,6 +169,33 @@ serverFiles:
             action: replace
             target_label: node
 
+      # EMQX - dedicated job for dashboard compatibility
+      - job_name: 'emqx'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - emqx
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: emqx
+          - source_labels: [__meta_kubernetes_pod_ip]
+            action: replace
+            target_label: __address__
+            regex: (.+)
+            replacement: '$1:18083'
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: instance
+        metrics_path: /api/v5/prometheus/stats
+
       # Services with prometheus.io/scrape annotation
       - job_name: 'kubernetes-services'
         kubernetes_sd_configs:
