@@ -4,6 +4,8 @@
 cloudflare:
   # Credentials from ExternalSecret
   secretName: cloudflared-credentials
+  # Tunnel name (must match the tunnel in Cloudflare)
+  tunnelName: macbook-air
   # Ingress rules - routed through tunnel
   ingress:
     - hostname: grafana.devopslaboratory.org
