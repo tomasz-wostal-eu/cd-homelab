@@ -40,7 +40,7 @@ datasources:
           token: $__env{influxdb-token}
       - name: Prometheus
         type: prometheus
-        uid: prometheus
+        uid: Prometheus
         url: http://prometheus-server.monitoring.svc:80
         access: proxy
         isDefault: true
