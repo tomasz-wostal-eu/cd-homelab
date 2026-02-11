@@ -7,34 +7,16 @@ replicaCount: 1
 emqxConfig:
   EMQX_LOG__CONSOLE__LEVEL: warning
 
-# Load credentials from secret
-envFromSecret: "homelab-emqx-credentials"
+# Load dashboard credentials (only dashboard password, NOT bridge config)
+envFromSecret: "homelab-emqx-dashboard"
 
 # Sidecar to configure MQTT bridge via API (env vars don't work for bridges in EMQX 5.x)
 extraContainers:
   - name: bridge-configurator
     image: curlimages/curl:8.5.0
-    env:
-      - name: EMQX_DASHBOARD_PASSWORD
-        valueFrom:
-          secretKeyRef:
-            name: homelab-emqx-credentials
-            key: EMQX_DASHBOARD__DEFAULT_PASSWORD
-      - name: BRIDGE_SERVER
-        valueFrom:
-          secretKeyRef:
-            name: homelab-emqx-credentials
-            key: EMQX_BRIDGES__MQTT__HA_BRIDGE__SERVER
-      - name: BRIDGE_USERNAME
-        valueFrom:
-          secretKeyRef:
-            name: homelab-emqx-credentials
-            key: EMQX_BRIDGES__MQTT__HA_BRIDGE__USERNAME
-      - name: BRIDGE_PASSWORD
-        valueFrom:
-          secretKeyRef:
-            name: homelab-emqx-credentials
-            key: EMQX_BRIDGES__MQTT__HA_BRIDGE__PASSWORD
+    envFrom:
+      - secretRef:
+          name: homelab-emqx-bridge
     command:
       - /bin/sh
       - -c
