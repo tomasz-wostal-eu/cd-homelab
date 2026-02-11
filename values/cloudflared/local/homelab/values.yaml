@@ -10,5 +10,4 @@ cloudflare:
   ingress:
     - hostname: grafana.devopslaboratory.org
       service: http://grafana.monitoring.svc.cluster.local:80
-    # Catch-all rule (required) - returns 404 for unmatched requests
-    - service: http_status:404
+    # Chart adds catch-all rule automatically
