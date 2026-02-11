@@ -10,6 +10,7 @@ sources:
   - service
   - ingress
   - gateway-httproute
+  - crd
 
 # Cloudflare provider
 provider:
