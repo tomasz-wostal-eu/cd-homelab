@@ -151,16 +151,22 @@ dashboards:
   argocd:
     argocd-operational-overview:
       gnetId: 19993
-      revision: 1
-      datasource: Prometheus
+      revision: 6
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
     argocd-application-overview:
       gnetId: 19974
-      revision: 1
-      datasource: Prometheus
+      revision: 6
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
     argocd-notifications-overview:
       gnetId: 19975
-      revision: 1
-      datasource: Prometheus
+      revision: 8
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
 
   istio:
     istio-mesh-dashboard:
@@ -185,11 +191,17 @@ dashboards:
       datasource: Prometheus
 
   envoy-gateway:
+    envoy-gateway-overview:
+      gnetId: 24460
+      revision: 1
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
     envoy-gateway-global:
-      url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-helm/dashboards/global.json
+      url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-addons-helm/dashboards/envoy-gateway-global.json
       datasource: Prometheus
     envoy-gateway-resources:
-      url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-helm/dashboards/resource.json
+      url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-addons-helm/dashboards/envoy-gateway-resources.json
       datasource: Prometheus
 
   cert-manager:
@@ -201,7 +213,7 @@ dashboards:
   external-secrets:
     external-secrets:
       gnetId: 21640
-      revision: 1
+      revision: 4
       datasource:
         - name: DS_METRICS
           value: Prometheus
@@ -211,13 +223,15 @@ dashboards:
   argo-workflows:
     argo-workflows:
       gnetId: 20348
-      revision: 1
-      datasource: Prometheus
+      revision: 4
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
 
   emqx:
     emqx-dashboard:
       gnetId: 17446
-      revision: 3
+      revision: 2
       datasource:
         - name: DS_PROMETHEUS
           value: Prometheus
@@ -225,7 +239,7 @@ dashboards:
   cnpg:
     cnpg-cluster:
       gnetId: 20417
-      revision: 3
+      revision: 4
       datasource:
         - name: DS_PROMETHEUS
           value: Prometheus
@@ -233,8 +247,10 @@ dashboards:
   sealed-secrets:
     sealed-secrets:
       gnetId: 14192
-      revision: 1
-      datasource: Prometheus
+      revision: 4
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
 
 # Sidecar configuration for auto-loading dashboards
 sidecar:
