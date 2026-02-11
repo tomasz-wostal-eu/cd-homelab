@@ -16,14 +16,14 @@ spec:
                 - path: values/cloudflared/local/*
           - list:
               elements:
-                - chart: cloudflare-tunnel
-                  repoURL: https://cloudflare.github.io/helm-charts
+                - chart: cloudflare-tunnel-ingress-controller
+                  repoURL: https://strrl.dev
                   targetRevision: 0.*
   template:
     metadata:
       name: 'cloudflared-{{ .path.basename }}'
       annotations:
-        argocd.argoproj.io/sync-wave: "5"
+        argocd.argoproj.io/sync-wave: "3"
     spec:
       project: platform-networking
       sources:
@@ -43,13 +43,6 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: cloudflared
-      ignoreDifferences:
-        - group: ""
-          kind: Secret
-          name: cloudflared-credentials
-          jsonPointers:
-            - /data
-            - /stringData
       syncPolicy:
         automated:
           prune: true

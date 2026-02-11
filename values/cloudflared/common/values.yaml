@@ -1,39 +1,22 @@
-# Cloudflare Tunnel (locally-managed) common configuration
-# Ingress rules configured in values, DNS via External DNS
-
-image:
-  repository: cloudflare/cloudflared
-  pullPolicy: IfNotPresent
-  tag: "2024.8.3"
+# Cloudflare Tunnel Ingress Controller - common configuration
+# Automatically creates DNS records and manages tunnel
 
 replicaCount: 1
 
-# Credentials from ExternalSecret
-cloudflare:
-  secretName: cloudflared-credentials
+# Ingress class name
+ingressClass:
+  name: cloudflare-tunnel
+  isDefaultClass: false
 
-podAnnotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "2000"
-  prometheus.io/path: "/metrics"
+# Cloudflared connector settings
+cloudflared:
+  image:
+    tag: "2024.8.3"
 
 resources:
   requests:
-    cpu: 10m
-    memory: 32Mi
+    cpu: 50m
+    memory: 64Mi
   limits:
-    cpu: 100m
-    memory: 128Mi
-
-# Pod-level security context
-podSecurityContext:
-  runAsNonRoot: true
-  runAsUser: 65532
-
-# Container-level security context
-securityContext:
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
+    cpu: 200m
+    memory: 256Mi
