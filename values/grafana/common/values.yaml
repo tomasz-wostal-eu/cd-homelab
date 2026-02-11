@@ -66,6 +66,38 @@ dashboardProviders:
         editable: true
         options:
           path: /var/lib/grafana/dashboards/external-secrets
+      - name: 'argo-workflows'
+        orgId: 1
+        folder: 'Argo Workflows'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/argo-workflows
+      - name: 'emqx'
+        orgId: 1
+        folder: 'EMQX'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/emqx
+      - name: 'cnpg'
+        orgId: 1
+        folder: 'CloudNative PG'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/cnpg
+      - name: 'sealed-secrets'
+        orgId: 1
+        folder: 'Sealed Secrets'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/sealed-secrets
 
 # Dashboards from Grafana.com and URLs
 dashboards:
@@ -175,6 +207,34 @@ dashboards:
           value: Prometheus
         - name: DS_PROMETHEUS
           value: Prometheus
+
+  argo-workflows:
+    argo-workflows:
+      gnetId: 20348
+      revision: 1
+      datasource: Prometheus
+
+  emqx:
+    emqx-dashboard:
+      gnetId: 17446
+      revision: 3
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
+
+  cnpg:
+    cnpg-cluster:
+      gnetId: 20417
+      revision: 3
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
+
+  sealed-secrets:
+    sealed-secrets:
+      gnetId: 14192
+      revision: 1
+      datasource: Prometheus
 
 # Sidecar configuration for auto-loading dashboards
 sidecar:

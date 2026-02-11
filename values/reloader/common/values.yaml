@@ -48,6 +48,12 @@ rbac:
 serviceAccount:
   create: true
 
-# Monitoring disabled for homelab
+# Monitoring
 podMonitor:
   enabled: false
+
+# Pod annotations for Prometheus scraping
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"

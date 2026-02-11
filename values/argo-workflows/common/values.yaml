@@ -1,1 +1,19 @@
 # Argo Workflows common config
+
+# Controller configuration
+controller:
+  metricsConfig:
+    enabled: true
+    port: 9090
+    path: /metrics
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+
+# Server configuration
+server:
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "2746"
+    prometheus.io/path: "/metrics"

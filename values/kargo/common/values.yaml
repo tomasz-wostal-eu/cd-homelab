@@ -16,6 +16,12 @@ controller:
     namespaces:
       - kargo-cluster-secrets
 
+  # Metrics for Prometheus
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+
   resources:
     limits:
       cpu: 500m

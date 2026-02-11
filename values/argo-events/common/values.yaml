@@ -1,1 +1,12 @@
 # Argo Events common config
+
+# Controller configuration
+controller:
+  metrics:
+    enabled: true
+    port: 7777
+    path: /metrics
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "7777"
+    prometheus.io/path: "/metrics"

@@ -1,3 +1,9 @@
 # InfluxDB 2.x common config
 image:
   tag: "2.7-alpine"
+
+# Pod annotations for Prometheus scraping
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8086"
+  prometheus.io/path: "/metrics"

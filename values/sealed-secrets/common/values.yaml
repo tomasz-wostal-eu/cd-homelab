@@ -15,6 +15,12 @@ metrics:
   dashboards:
     create: false
 
+# Pod annotations for Prometheus scraping
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8081"
+  prometheus.io/path: "/metrics"
+
 # Security context
 podSecurityContext:
   fsGroup: 65534

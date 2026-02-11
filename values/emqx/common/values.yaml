@@ -48,3 +48,9 @@ readinessProbe:
   enabled: true
   initialDelaySeconds: 10
   periodSeconds: 5
+
+# Metrics for Prometheus
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "18083"
+  prometheus.io/path: "/api/v5/prometheus/stats"

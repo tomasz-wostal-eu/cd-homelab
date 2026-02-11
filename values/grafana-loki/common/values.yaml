@@ -18,6 +18,12 @@ singleBinary:
     enabled: true
     size: 10Gi
     storageClass: "nfs-rwx"
+  extraArgs:
+    - -config.expand-env=true
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3100"
+    prometheus.io/path: "/metrics"
 
 # Loki configuration
 loki:

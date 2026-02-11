@@ -46,6 +46,12 @@ monitoring:
   grafanaDashboard:
     create: false
 
+# Pod annotations for Prometheus scraping
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
 # Config
 config:
   # Watch all namespaces
