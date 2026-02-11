@@ -9,5 +9,5 @@ cloudflare:
   # Ingress rules - routed through tunnel
   ingress:
     - hostname: grafana.devopslaboratory.org
-      service: http://grafana.monitoring.svc.cluster.local:80
+      service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
     # Chart adds catch-all rule automatically
