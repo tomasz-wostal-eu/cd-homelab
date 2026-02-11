@@ -13,8 +13,8 @@ spec:
       - emqx
   selector:
     matchLabels:
-      apps.emqx.io/instance: emqx
-      apps.emqx.io/managed-by: emqx-operator
+      app.kubernetes.io/name: emqx
+      app.kubernetes.io/instance: emqx
   endpoints:
     - port: dashboard
       path: /api/v5/prometheus/stats
