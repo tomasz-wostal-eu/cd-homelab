@@ -87,97 +87,84 @@ dashboards:
       revision: 1
       datasource:
         - name: DS_PROMETHEUS
-          value: Mimir
+          value: Prometheus
 
   grafana-stack:
-    # Mimir dashboards
-    mimir-overview:
-      url: https://raw.githubusercontent.com/grafana/mimir/main/operations/mimir-mixin-compiled/dashboards/mimir-overview.json
-      datasource: Mimir
-    mimir-writes:
-      url: https://raw.githubusercontent.com/grafana/mimir/main/operations/mimir-mixin-compiled/dashboards/mimir-writes.json
-      datasource: Mimir
-    mimir-reads:
-      url: https://raw.githubusercontent.com/grafana/mimir/main/operations/mimir-mixin-compiled/dashboards/mimir-reads.json
-      datasource: Mimir
-    mimir-compactor:
-      url: https://raw.githubusercontent.com/grafana/mimir/main/operations/mimir-mixin-compiled/dashboards/mimir-compactor.json
-      datasource: Mimir
     # Loki dashboards
     loki-operational:
       url: https://raw.githubusercontent.com/grafana/loki/main/production/loki-mixin-compiled/dashboards/loki-operational.json
-      datasource: Mimir
+      datasource: Prometheus
     loki-reads:
       url: https://raw.githubusercontent.com/grafana/loki/main/production/loki-mixin-compiled/dashboards/loki-reads.json
-      datasource: Mimir
+      datasource: Prometheus
     loki-writes:
       url: https://raw.githubusercontent.com/grafana/loki/main/production/loki-mixin-compiled/dashboards/loki-writes.json
-      datasource: Mimir
+      datasource: Prometheus
     # Tempo dashboards
     tempo-operational:
       url: https://raw.githubusercontent.com/grafana/tempo/main/operations/tempo-mixin-compiled/dashboards/tempo-operational.json
-      datasource: Mimir
+      datasource: Prometheus
     tempo-reads:
       url: https://raw.githubusercontent.com/grafana/tempo/main/operations/tempo-mixin-compiled/dashboards/tempo-reads.json
-      datasource: Mimir
+      datasource: Prometheus
     tempo-writes:
       url: https://raw.githubusercontent.com/grafana/tempo/main/operations/tempo-mixin-compiled/dashboards/tempo-writes.json
-      datasource: Mimir
+      datasource: Prometheus
     # Alloy dashboard
     alloy-monitoring:
       gnetId: 21377
       revision: 1
-      datasource: Mimir
+      datasource: Prometheus
 
   argocd:
     argocd-operational-overview:
       gnetId: 19993
       revision: 1
-      datasource: Mimir
+      datasource: Prometheus
     argocd-application-overview:
       gnetId: 19974
       revision: 1
-      datasource: Mimir
+      datasource: Prometheus
     argocd-notifications-overview:
       gnetId: 19975
       revision: 1
-      datasource: Mimir
+      datasource: Prometheus
 
   istio:
     istio-mesh-dashboard:
       gnetId: 7639
       revision: 245
-      datasource: Mimir
+      datasource: Prometheus
     istio-control-plane-dashboard:
       gnetId: 7645
       revision: 245
-      datasource: Mimir
+      datasource: Prometheus
     istio-service-dashboard:
       gnetId: 7636
       revision: 245
-      datasource: Mimir
+      datasource: Prometheus
     istio-workload-dashboard:
       gnetId: 7630
       revision: 245
-      datasource: Mimir
+      datasource: Prometheus
     istio-ztunnel-dashboard:
       gnetId: 21306
       revision: 48
-      datasource: Mimir
+      datasource: Prometheus
 
   envoy-gateway:
     envoy-gateway-global:
       url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-helm/dashboards/global.json
-      datasource: Mimir
+      datasource: Prometheus
     envoy-gateway-resources:
       url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-helm/dashboards/resource.json
-      datasource: Mimir
+      datasource: Prometheus
 
   cert-manager:
     cert-manager:
       gnetId: 20842
       revision: 3
-      datasource: Mimir
+      datasource: Prometheus
 
   external-secrets:
     external-secrets:
@@ -185,9 +172,9 @@ dashboards:
       revision: 1
       datasource:
         - name: DS_METRICS
-          value: Mimir
+          value: Prometheus
         - name: DS_PROMETHEUS
-          value: Mimir
+          value: Prometheus
 
 # Sidecar configuration for auto-loading dashboards
 sidecar:

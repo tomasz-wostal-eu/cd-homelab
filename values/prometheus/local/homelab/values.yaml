@@ -1,0 +1,13 @@
+# Prometheus homelab-specific configuration
+
+server:
+  retention: "15d"
+  persistentVolume:
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 4Gi

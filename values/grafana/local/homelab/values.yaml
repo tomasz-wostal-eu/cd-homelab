@@ -38,15 +38,14 @@ datasources:
           defaultBucket: mqtt
         secureJsonData:
           token: $__env{influxdb-token}
-      - name: Mimir
+      - name: Prometheus
         type: prometheus
-        uid: mimir
-        url: http://mimir-nginx.monitoring.svc:80/prometheus
+        uid: prometheus
+        url: http://prometheus-server.monitoring.svc:80
         access: proxy
         isDefault: true
         jsonData:
           httpMethod: POST
-          prometheusType: Mimir
       - name: Loki
         type: loki
         uid: loki
@@ -65,9 +64,9 @@ datasources:
             filterByTraceID: true
             filterBySpanID: false
           tracesToMetrics:
-            datasourceUid: mimir
+            datasourceUid: prometheus
           serviceMap:
-            datasourceUid: mimir
+            datasourceUid: prometheus
           nodeGraph:
             enabled: true
           lokiSearch:
