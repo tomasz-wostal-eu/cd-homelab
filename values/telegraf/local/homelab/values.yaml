@@ -13,16 +13,6 @@ config:
     flush_jitter: "0s"
     debug: false
 
-  processors:
-    - enum:
-        mapping:
-          field: "status"
-          dest: "status_code"
-          value_mappings:
-            healthy: 1
-            problem: 2
-            critical: 3
-
   outputs:
     - influxdb_v2:
         urls:
@@ -32,23 +22,52 @@ config:
         bucket: "mqtt"
 
   inputs:
+    # Hydrosense aquarium data
     - mqtt_consumer:
+        name_override: "hydrosense"
         servers:
           - "tcp://emqx.emqx.svc.cluster.local:1883"
         topics:
-          - "homeassistant/#"
-          - "zigbee2mqtt/#"
-          - "+/+/#"
+          - "hydrosense/+/+/state"
         qos: 1
         connection_timeout: "30s"
-        persistent_session: false
-        client_id: "telegraf-homelab"
+        persistent_session: true
+        client_id: "telegraf-hydrosense"
         data_format: "json"
         topic_tag: "topic"
+        json_string_fields:
+          - "mode"
+          - "water_level"
+          - "pump_state"
+          - "current_level"
+          - "next_action"
+
+    # Zigbee2MQTT sensors (temperature, humidity, etc.)
+    - mqtt_consumer:
+        name_override: "zigbee"
+        servers:
+          - "tcp://emqx.emqx.svc.cluster.local:1883"
+        topics:
+          - "zigbee2mqtt/+"
+        qos: 1
+        connection_timeout: "30s"
+        persistent_session: true
+        client_id: "telegraf-zigbee"
+        data_format: "json"
+        topic_tag: "topic"
+        json_string_fields:
+          - "state"
+          - "device_class"
 
 # Disable service - no inputs require exposed ports
 service:
   enabled: false
+
+# Pod annotations for Prometheus
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9273"
+  prometheus.io/path: "/metrics"
 
 resources:
   requests:

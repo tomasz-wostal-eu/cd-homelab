@@ -13,13 +13,14 @@ emqxConfig:
   # Credentials loaded from secret via envFromSecret below
   EMQX_BRIDGES__MQTT__HA_BRIDGE__ENABLE: "true"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__PROTO_VER: "v5"
-  EMQX_BRIDGES__MQTT__HA_BRIDGE__CLEAN_START: "true"
+  EMQX_BRIDGES__MQTT__HA_BRIDGE__CLEAN_START: "false"
   # Ingress: subscribe to all topics from HA and republish locally
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__REMOTE__TOPIC: "#"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__REMOTE__QOS: "1"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__TOPIC: "${topic}"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__QOS: "${qos}"
   EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__RETAIN: "${retain}"
+  EMQX_BRIDGES__MQTT__HA_BRIDGE__INGRESS__LOCAL__PAYLOAD: "${payload}"
 
 # Load credentials from secret (keys must be EMQX env var names)
 envFromSecret: "homelab-emqx-credentials"

@@ -25,3 +25,15 @@ containerSecurityContext:
     drop:
       - ALL
   readOnlyRootFilesystem: true
+
+# Prometheus metrics
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false
+
+# Pod annotations for Prometheus scraping
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9402"
+  prometheus.io/path: "/metrics"

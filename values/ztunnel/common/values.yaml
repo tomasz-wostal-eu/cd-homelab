@@ -3,3 +3,9 @@
 # L4 proxy for Istio Ambient mode
 
 terminationGracePeriodSeconds: 30
+
+# Pod annotations for Prometheus scraping
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "15020"
+  prometheus.io/path: "/stats/prometheus"

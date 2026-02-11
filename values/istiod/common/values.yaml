@@ -14,3 +14,10 @@ meshConfig:
 global:
   istioNamespace: istio-system
   logAsJson: true
+
+# Pilot (Istiod) configuration
+pilot:
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "15014"
+    prometheus.io/path: "/metrics"
