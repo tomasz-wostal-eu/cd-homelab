@@ -200,8 +200,8 @@ dashboards:
     envoy-gateway-global:
       url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-addons-helm/dashboards/envoy-gateway-global.json
       datasource: Prometheus
-    envoy-gateway-resources:
-      url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-addons-helm/dashboards/envoy-gateway-resources.json
+    envoy-proxy-global:
+      url: https://raw.githubusercontent.com/envoyproxy/gateway/main/charts/gateway-addons-helm/dashboards/envoy-proxy-global.json
       datasource: Prometheus
 
   cert-manager:
