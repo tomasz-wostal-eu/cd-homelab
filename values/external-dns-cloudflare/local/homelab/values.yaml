@@ -3,6 +3,7 @@
 # Domain filters - add your Cloudflare managed domains
 domainFilters:
   - "wostal.eu"
+  - "devopslaboratory.org"
 
 # Sources to watch for DNS records
 sources:

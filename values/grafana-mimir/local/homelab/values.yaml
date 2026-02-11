@@ -1,71 +1,14 @@
 # Mimir homelab-specific configuration
-# Reduced resources for local k3d cluster
+# Single binary mode - all in one pod
 
-ingester:
+# Override resources for homelab
+mimir_monolithic:
   resources:
     requests:
-      cpu: 50m
+      cpu: 100m
       memory: 512Mi
     limits:
-      cpu: 500m
-      memory: 2Gi
-  persistentVolume:
-    size: 2Gi
-
-distributor:
-  resources:
-    requests:
-      cpu: 25m
-      memory: 256Mi
-    limits:
-      cpu: 250m
+      cpu: 1000m
       memory: 4Gi
-
-querier:
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-
-query_frontend:
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-
-store_gateway:
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
   persistentVolume:
-    size: 1Gi
-
-compactor:
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-  persistentVolume:
-    size: 1Gi
-
-nginx:
-  resources:
-    requests:
-      cpu: 5m
-      memory: 16Mi
-    limits:
-      cpu: 50m
-      memory: 64Mi
+    size: 10Gi

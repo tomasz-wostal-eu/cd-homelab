@@ -1,9 +1,8 @@
-# Mimir configuration for homelab
-# Using microservices mode but with single replica for low footprint
+# Mimir configuration for homelab - SINGLE BINARY MODE
+# All components run in one pod for simplicity and lower resource usage
 
-# Global configuration
-global:
-  extraEnvFrom: []
+# Deployment mode - monolithic (single binary)
+deploymentMode: monolithic
 
 # Mimir configuration
 mimir:
@@ -14,28 +13,23 @@ mimir:
         filesystem:
           dir: /data/mimir
 
-    # Ingester ring - single replica mode for homelab
-    ingester:
-      ring:
-        replication_factor: 1
-
     # Limits configuration
     limits:
-      # Ingestion limits - increased for k8s cluster metrics
+      # Ingestion limits
       ingestion_rate: 50000
       ingestion_burst_size: 500000
       max_global_series_per_user: 300000
       max_global_series_per_metric: 100000
       max_label_names_per_series: 50
       max_label_value_length: 2048
-      # Allow out-of-order samples (for Alloy buffer replay after restart)
+      # Allow out-of-order samples
       out_of_order_time_window: 30m
 
       # Query limits
       max_fetched_series_per_query: 50000
       max_fetched_chunks_per_query: 2000000
 
-      # Compactor
+      # Retention
       compactor_blocks_retention_period: 168h  # 7 days
 
     # Blocks storage
@@ -62,93 +56,44 @@ mimir:
     compactor:
       data_dir: /data/mimir/compactor
 
-# Ingester
-ingester:
+# Monolithic deployment (single binary)
+mimir_monolithic:
   replicas: 1
-  zoneAwareReplication:
-    enabled: false
   resources:
     requests:
-      cpu: 50m
-      memory: 256Mi
-    limits:
-      cpu: 500m
+      cpu: 100m
       memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 4Gi
   persistentVolume:
     enabled: true
-    size: 5Gi
+    size: 10Gi
     storageClass: "nfs-rwx"
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
 
-# Distributor
+# Disable all microservices components
+ingester:
+  replicas: 0
 distributor:
-  replicas: 1
-  resources:
-    requests:
-      cpu: 25m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-
-# Querier
+  replicas: 0
 querier:
-  replicas: 1
-  resources:
-    requests:
-      cpu: 25m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-
-# Query frontend
+  replicas: 0
 query_frontend:
-  replicas: 1
-  resources:
-    requests:
-      cpu: 25m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-
-# Store gateway
+  replicas: 0
 store_gateway:
-  replicas: 1
-  zoneAwareReplication:
-    enabled: false
-  resources:
-    requests:
-      cpu: 25m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-  persistentVolume:
-    enabled: true
-    size: 2Gi
-    storageClass: "nfs-rwx"
-
-# Compactor
+  replicas: 0
 compactor:
-  replicas: 1
-  resources:
-    requests:
-      cpu: 25m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-  persistentVolume:
-    enabled: true
-    size: 2Gi
-    storageClass: "nfs-rwx"
+  replicas: 0
 
-# Ruler disabled for homelab
+# Ruler disabled
 ruler:
   enabled: false
 
-# Alertmanager disabled for homelab
+# Alertmanager disabled
 alertmanager:
   enabled: false
 
@@ -156,11 +101,11 @@ alertmanager:
 overrides_exporter:
   enabled: false
 
-# Query scheduler disabled (not needed for single replica)
+# Query scheduler disabled
 query_scheduler:
   enabled: false
 
-# Nginx gateway
+# Nginx gateway - still needed for routing
 nginx:
   enabled: true
   replicas: 1
@@ -176,7 +121,7 @@ nginx:
 minio:
   enabled: false
 
-# Memcached disabled for simplicity
+# Caches disabled for simplicity
 chunks-cache:
   enabled: false
 index-cache:
