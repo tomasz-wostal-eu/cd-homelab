@@ -1,17 +1,10 @@
-# Cloudflare Tunnel Ingress Controller - common configuration
-# Automatically creates DNS records and manages tunnel
+# Cloudflare Tunnel - common configuration
+# https://github.com/cloudflare/helm-charts/tree/main/charts/cloudflare-tunnel
 
 replicaCount: 1
 
-# Ingress class name
-ingressClass:
-  name: cloudflare-tunnel
-  isDefaultClass: false
-
-# Cloudflared connector settings
-cloudflared:
-  image:
-    tag: "2024.8.3"
+image:
+  tag: "2024.8.3"
 
 resources:
   requests:

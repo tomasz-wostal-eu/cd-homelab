@@ -16,8 +16,8 @@ spec:
                 - path: values/cloudflared/local/*
           - list:
               elements:
-                - chart: cloudflare-tunnel-ingress-controller
-                  repoURL: https://strrl.dev
+                - chart: cloudflare-tunnel
+                  repoURL: https://cloudflare.github.io/helm-charts
                   targetRevision: 0.*
   template:
     metadata:
