@@ -1,0 +1,2 @@
+# MetalLB - homelab configuration
+# No additional helm values needed, IP pool configured via CRDs

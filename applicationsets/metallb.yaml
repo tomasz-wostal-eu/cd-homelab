@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: metallb
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - git:
+              repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+              revision: HEAD
+              directories:
+                - path: values/metallb/local/*
+          - list:
+              elements:
+                - chart: metallb
+                  repoURL: https://metallb.github.io/metallb
+                  targetRevision: 0.*
+  template:
+    metadata:
+      name: 'metallb-{{ .path.basename }}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "-1"
+    spec:
+      project: platform-networking
+      sources:
+        - repoURL: '{{ .repoURL }}'
+          targetRevision: '{{ .targetRevision }}'
+          chart: '{{ .chart }}'
+          helm:
+            releaseName: metallb
+            valueFiles:
+              - $values/values/metallb/common/values.yaml
+              - $values/values/metallb/local/{{ .path.basenameNormalized }}/values.yaml
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: HEAD
+          ref: values
+        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+          targetRevision: HEAD
+          path: extras/local/metallb
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: metallb-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
