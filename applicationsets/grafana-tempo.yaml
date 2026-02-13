@@ -41,10 +41,10 @@ spec:
             valueFiles:
               - $values/values/grafana-tempo/common/values.yaml
               - $values/values/grafana-tempo/{{ .region }}/{{ .env }}/values.yaml
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           ref: values
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           path: extras/{{ .region }}/grafana-tempo
       destination:

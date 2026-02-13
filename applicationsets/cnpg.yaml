@@ -41,12 +41,12 @@ spec:
             valueFiles:
               - $values/values/cnpg/common/values.yaml
               - $values/values/cnpg/{{ .region }}/{{ .env }}/values.yaml
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           path: extras/{{ .region }}/cnpg
           directory:
             recurse: true
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           ref: values
       destination:

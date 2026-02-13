@@ -41,10 +41,10 @@ spec:
             valueFiles:
               - $values/values/kube-prometheus-stack/common/values.yaml
               - $values/values/kube-prometheus-stack/{{ .region }}/{{ .env }}/values.yaml
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           ref: values
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           path: extras/{{ .region }}/kube-prometheus-stack
       destination:

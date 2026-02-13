@@ -10,7 +10,7 @@ spec:
     - matrix:
         generators:
           - git:
-              repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+              repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
               revision: HEAD
               directories:
                 - path: values/cloudflared/local/*
@@ -34,10 +34,10 @@ spec:
             valueFiles:
               - $values/values/cloudflared/common/values.yaml
               - $values/values/cloudflared/local/{{ .path.basenameNormalized }}/values.yaml
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: HEAD
           ref: values
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: HEAD
           path: extras/local/cloudflared
       destination:

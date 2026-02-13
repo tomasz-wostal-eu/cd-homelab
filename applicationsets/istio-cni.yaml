@@ -46,7 +46,7 @@ spec:
             valueFiles:
               - $values/values/istio-cni/common/values.yaml
               - $values/values/istio-cni/{{ .region }}/{{ .env }}/values.yaml
-        - repoURL: ssh://git@forgejo.tailc90e09.ts.net/tomasz-wostal-eu/cd-homelab.git
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           ref: values
       destination:
