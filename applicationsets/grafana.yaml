@@ -83,7 +83,6 @@ spec:
             app.kubernetes.io/part-of: monitoring
             region: "{{ .region }}"
             env: "{{ .env }}"
-            istio.io/dataplane-mode: ambient
           annotations:
             argocd.argoproj.io/managed-by: "grafana-{{ .name }}"
         syncOptions:
