@@ -17,6 +17,11 @@ sources:
 provider:
   name: cloudflare
 
+# Enable Cloudflare proxy (orange cloud) for all records
+# Required for Cloudflare Tunnel to work
+extraArgs:
+  - --cloudflare-proxied
+
 # Sync policy - will create and delete records
 policy: sync
 
