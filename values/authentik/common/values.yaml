@@ -1,0 +1,106 @@
+---
+# Common values for Authentik across all environments
+
+# Disable embedded PostgreSQL (we use CNPG)
+postgresql:
+  enabled: false
+
+# Authentik configuration
+authentik:
+  # Secret key for Authentik (will be provided via external secret)
+  secret_key: ""
+
+  # Error reporting
+  error_reporting:
+    enabled: false
+
+  # PostgreSQL configuration (CNPG)
+  # Note: password is injected via env from authentik-db-app secret
+  postgresql:
+    host: "authentik-db-rw.authentik.svc.cluster.local"
+    port: 5432
+    name: authentik
+    user: authentik
+
+  # Redis configuration
+  redis:
+    host: "authentik-redis-master"
+
+# Server configuration
+server:
+  enabled: true
+  name: server
+
+  # Environment variables from secrets
+  env:
+    # PostgreSQL password from CNPG secret
+    - name: AUTHENTIK_POSTGRESQL__PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: authentik-db-app
+          key: password
+    # Authentik secret key
+    - name: AUTHENTIK_SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: authentik-secrets
+          key: AUTHENTIK_SECRET_KEY
+    # Redis password
+    - name: AUTHENTIK_REDIS__PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: authentik-secrets
+          key: AUTHENTIK_REDIS__PASSWORD
+
+  ingress:
+    enabled: false  # We use Tailscale ingress
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+
+  service:
+    type: ClusterIP
+    servicePortHttp: 80
+    servicePortHttps: 443
+
+# Worker configuration
+worker:
+  enabled: true
+  name: worker
+
+  # Environment variables from secrets
+  env:
+    # PostgreSQL password from CNPG secret
+    - name: AUTHENTIK_POSTGRESQL__PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: authentik-db-app
+          key: password
+    # Authentik secret key
+    - name: AUTHENTIK_SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: authentik-secrets
+          key: AUTHENTIK_SECRET_KEY
+    # Redis password
+    - name: AUTHENTIK_REDIS__PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: authentik-secrets
+          key: AUTHENTIK_REDIS__PASSWORD
+
+# Redis (embedded)
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    existingSecret: authentik-secrets
+    existingSecretPasswordKey: AUTHENTIK_REDIS__PASSWORD
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClass: local-path

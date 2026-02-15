@@ -31,8 +31,10 @@ config:
           - "hydrosense/+/+/state"
         qos: 1
         connection_timeout: "30s"
-        persistent_session: true
+        persistent_session: false
         client_id: "telegraf-hydrosense"
+        keep_alive: "60s"
+        max_undelivered_messages: 1000
         data_format: "json"
         topic_tag: "topic"
         json_string_fields:
@@ -42,7 +44,7 @@ config:
           - "current_level"
           - "next_action"
 
-    # Zigbee2MQTT sensors (temperature, humidity, etc.)
+    # Zigbee2MQTT sensors (power, energy, temperature, etc.)
     - mqtt_consumer:
         name_override: "zigbee"
         servers:
@@ -51,13 +53,16 @@ config:
           - "zigbee2mqtt/+"
         qos: 1
         connection_timeout: "30s"
-        persistent_session: true
+        persistent_session: false
         client_id: "telegraf-zigbee"
+        keep_alive: "60s"
+        max_undelivered_messages: 1000
         data_format: "json"
         topic_tag: "topic"
         json_string_fields:
           - "state"
-          - "device_class"
+          - "indicator_mode"
+          - "power_outage_memory"
 
 # Disable service - no inputs require exposed ports
 service:

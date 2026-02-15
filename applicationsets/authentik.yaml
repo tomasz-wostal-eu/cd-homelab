@@ -1,0 +1,101 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: authentik
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: authentik
+            helmRevision: "2025.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: authentik-{{ .name }}
+      labels:
+        app.kubernetes.io/name: authentik
+        app.kubernetes.io/instance: authentik-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+        argocd.argoproj.io/sync-wave: "2"
+    spec:
+      project: platform-core
+      sources:
+        - repoURL: https://charts.goauthentik.io
+          chart: authentik
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: authentik
+            valueFiles:
+              - $values/values/authentik/common/values.yaml
+              - $values/values/authentik/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          path: extras/{{ .region }}/authentik
+          directory:
+            recurse: true
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .spec.data[].remoteRef.conversionStrategy
+            - .spec.data[].remoteRef.decodingStrategy
+            - .spec.data[].remoteRef.metadataPolicy
+        - group: postgresql.cnpg.io
+          kind: Cluster
+          jqPathExpressions:
+            - .spec.resources.limits.cpu
+            - .spec.resources.requests.cpu
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 10m
+        managedNamespaceMetadata:
+          labels:
+            owner: argocd
+            app.kubernetes.io/part-of: authentik
+            region: "{{ .region }}"
+            env: "{{ .env }}"
+          annotations:
+            argocd.argoproj.io/managed-by: "authentik-{{ .name }}"
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true

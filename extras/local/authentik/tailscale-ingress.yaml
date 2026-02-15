@@ -1,0 +1,19 @@
+---
+# Tailscale Ingress for Authentik
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: authentik-homelab
+  namespace: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: authentik-server
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - authentik-homelab
