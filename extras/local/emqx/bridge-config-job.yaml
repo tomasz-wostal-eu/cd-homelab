@@ -30,13 +30,16 @@ spec:
 
               # Wait for EMQX API to be ready
               echo "Waiting for EMQX API..."
-              until curl -sf http://emqx.emqx.svc.cluster.local:18083/api/v5/status > /dev/null 2>&1; do
-                echo "EMQX not ready, waiting..."
+              for i in $(seq 1 60); do
+                if curl -sf http://emqx.emqx.svc.cluster.local:18083/api/v5/status > /dev/null 2>&1; then
+                  echo "EMQX API is ready"
+                  break
+                fi
+                echo "EMQX not ready, waiting... ($i/60)"
                 sleep 5
               done
-              echo "EMQX API is ready"
 
-              # Get auth token (try custom password first, then default)
+              # Get auth token
               echo "Authenticating..."
               TOKEN=$(curl -sf -X POST http://emqx.emqx.svc.cluster.local:18083/api/v5/login \
                 -H "Content-Type: application/json" \
@@ -57,18 +60,25 @@ spec:
               fi
               echo "Authenticated successfully"
 
-              # Check if bridge exists
+              # Check if bridge exists using HTTP status code
               echo "Checking if bridge exists..."
-              BRIDGE_STATUS=$(curl -sf -H "Authorization: Bearer $TOKEN" \
-                http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges/mqtt:ha_bridge 2>/dev/null || echo "not_found")
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" \
+                http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges/mqtt:ha_bridge)
 
-              if echo "$BRIDGE_STATUS" | grep -q "ha_bridge"; then
-                echo "Bridge already exists, skipping creation"
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Bridge already exists and is configured"
+
+                # Verify bridge is connected
+                BRIDGE_STATUS=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                  http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges/mqtt:ha_bridge | \
+                  grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+                echo "Bridge status: $BRIDGE_STATUS"
                 exit 0
               fi
 
-              echo "Creating MQTT bridge to Home Assistant..."
-              RESULT=$(curl -sf -X POST http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges \
+              echo "Bridge not found (HTTP $HTTP_CODE), creating..."
+              RESULT=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+                http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer $TOKEN" \
                 -d "{
@@ -89,11 +99,16 @@ spec:
                       \"payload\": \"\${payload}\"
                     }
                   }
-                }" 2>&1)
+                }")
 
-              if echo "$RESULT" | grep -q "ha_bridge"; then
+              RESPONSE_CODE=$(echo "$RESULT" | grep "HTTP_CODE:" | cut -d: -f2)
+              RESPONSE_BODY=$(echo "$RESULT" | grep -v "HTTP_CODE:")
+
+              if [ "$RESPONSE_CODE" = "201" ] || [ "$RESPONSE_CODE" = "200" ]; then
                 echo "Bridge created successfully!"
+                echo "Response: $RESPONSE_BODY"
               else
-                echo "Bridge creation failed: $RESULT"
+                echo "Bridge creation failed (HTTP $RESPONSE_CODE)"
+                echo "Response: $RESPONSE_BODY"
                 exit 1
               fi
