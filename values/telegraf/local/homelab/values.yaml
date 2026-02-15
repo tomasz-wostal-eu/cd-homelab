@@ -33,7 +33,6 @@ config:
         connection_timeout: "30s"
         persistent_session: false
         client_id: "telegraf-hydrosense"
-        keep_alive: "60s"
         max_undelivered_messages: 1000
         data_format: "json"
         topic_tag: "topic"
@@ -55,7 +54,6 @@ config:
         connection_timeout: "30s"
         persistent_session: false
         client_id: "telegraf-zigbee"
-        keep_alive: "60s"
         max_undelivered_messages: 1000
         data_format: "json"
         topic_tag: "topic"
