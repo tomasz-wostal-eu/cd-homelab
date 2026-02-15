@@ -31,7 +31,7 @@ config:
           - "hydrosense/+/+/state"
         qos: 1
         connection_timeout: "30s"
-        persistent_session: false
+        persistent_session: true
         client_id: "telegraf-hydrosense"
         max_undelivered_messages: 1000
         data_format: "json"
@@ -52,7 +52,7 @@ config:
           - "zigbee2mqtt/+"
         qos: 1
         connection_timeout: "30s"
-        persistent_session: false
+        persistent_session: true
         client_id: "telegraf-zigbee"
         max_undelivered_messages: 1000
         data_format: "json"
