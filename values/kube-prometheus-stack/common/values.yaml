@@ -39,6 +39,30 @@ prometheus:
         cpu: 1000m
         memory: 4Gi
 
+    # Remote write to VictoriaMetrics for long-term storage
+    remoteWrite:
+      - url: http://victoria-metrics-single-server.monitoring.svc:8428/api/v1/write
+        queueConfig:
+          capacity: 10000
+          maxShards: 5
+          minShards: 1
+          maxSamplesPerSend: 5000
+          batchSendDeadline: 5s
+          minBackoff: 30ms
+          maxBackoff: 5s
+        writeRelabelConfigs:
+          # Drop high-cardinality Istio histogram buckets
+          - sourceLabels: [__name__]
+            regex: 'istio_request_duration_milliseconds_bucket|istio_request_bytes_bucket|istio_response_bytes_bucket'
+            action: drop
+          # Drop unnecessary pod template labels
+          - regex: 'pod_template_hash|controller_revision_hash|pod_template_generation'
+            action: labeldrop
+          # Drop etcd metrics (not accessible in k3d)
+          - sourceLabels: [__name__]
+            regex: 'etcd_.*'
+            action: drop
+
     # Pod annotations for Istio ambient
     podMetadata:
       annotations:

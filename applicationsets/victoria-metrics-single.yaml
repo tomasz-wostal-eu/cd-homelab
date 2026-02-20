@@ -1,0 +1,87 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: victoria-metrics-single
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: homelab
+            cluster: https://kubernetes.default.svc
+            namespace: monitoring
+            helmRevision: "0.28.*"
+            env: homelab
+            region: local
+            type: homelab
+  template:
+    metadata:
+      name: victoria-metrics-single-{{ .name }}
+      labels:
+        app.kubernetes.io/name: victoria-metrics-single
+        app.kubernetes.io/instance: victoria-metrics-single-{{ .name }}
+        env: "{{ .env }}"
+        cluster: "{{ .name }}"
+        region: "{{ .region }}"
+        type: "{{ .type }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+        homelab.argocd.io/cluster-url: "{{ .cluster }}"
+    spec:
+      project: platform-observability
+      sources:
+        - repoURL: https://victoriametrics.github.io/helm-charts
+          chart: victoria-metrics-single
+          targetRevision: "{{ .helmRevision }}"
+          helm:
+            releaseName: victoria-metrics-single
+            valueFiles:
+              - $values/values/victoria-metrics-single/common/values.yaml
+              - $values/values/victoria-metrics-single/{{ .region }}/{{ .env }}/values.yaml
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          ref: values
+        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+          targetRevision: main
+          path: extras/{{ .region }}/victoria-metrics-single
+      destination:
+        server: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      revisionHistoryLimit: 5
+      info:
+        - name: Region
+          value: "{{ .region }}"
+        - name: Environment
+          value: "{{ .env }}"
+        - name: Type
+          value: "{{ .type }}"
+        - name: Chart Version
+          value: "{{ .helmRevision }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m
+        managedNamespaceMetadata:
+          labels:
+            owner: argocd
+            app.kubernetes.io/part-of: monitoring
+            region: "{{ .region }}"
+            env: "{{ .env }}"
+          annotations:
+            argocd.argoproj.io/managed-by: "victoria-metrics-single-{{ .name }}"
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true

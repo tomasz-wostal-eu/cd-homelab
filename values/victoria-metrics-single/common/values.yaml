@@ -1,0 +1,70 @@
+---
+# VictoriaMetrics Single-Node Configuration
+# Long-term metrics storage (1 year retention) for homelab
+
+server:
+  enabled: true
+
+  # 1 year retention
+  retentionPeriod: 12
+
+  # Persistent storage on NFS
+  persistentVolume:
+    enabled: true
+    storageClass: nfs-rwx
+    accessModes:
+      - ReadWriteMany
+    size: 50Gi
+
+  # Resource limits for homelab
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    servicePort: 8428
+
+  # Enable Prometheus scraping of VictoriaMetrics itself
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8428"
+    prometheus.io/path: "/metrics"
+
+  # Performance tuning
+  extraArgs:
+    # Deduplicate samples with same timestamp within 30s interval
+    dedup.minScrapeInterval: 30s
+
+    # Allow using 80% of memory limit for caching
+    memory.allowedPercent: 80
+
+    # Maximum query duration
+    search.maxQueryDuration: 30m
+
+# Disable cluster components (single-node mode)
+vmselect:
+  enabled: false
+
+vminsert:
+  enabled: false
+
+vmstorage:
+  enabled: false
+
+# Disable vmagent (Prometheus handles scraping)
+vmagent:
+  enabled: false
+
+# Disable vmalert (using Prometheus Alertmanager)
+vmalert:
+  enabled: false
+
+# Disable alertmanager (using kube-prometheus-stack's)
+alertmanager:
+  enabled: false

@@ -41,11 +41,21 @@ datasources:
       - name: Prometheus
         type: prometheus
         uid: Prometheus
-        url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+        url: http://victoria-metrics-single-server.monitoring.svc:8428
         access: proxy
         isDefault: true
         jsonData:
           httpMethod: POST
+          timeInterval: 30s
+      - name: Prometheus-Direct
+        type: prometheus
+        uid: prometheus-direct
+        url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+        access: proxy
+        isDefault: false
+        jsonData:
+          httpMethod: POST
+          timeInterval: 30s
       - name: Loki
         type: loki
         uid: loki

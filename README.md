@@ -19,7 +19,7 @@ Production-grade Kubernetes homelab running locally on macOS/Linux with full Git
 | **Ingress** | Tailscale MagicDNS (automatic HTTPS) |
 | **Secrets** | Sealed Secrets + External Secrets → Azure Key Vault |
 | **TLS** | cert-manager with self-signed CA |
-| **Observability** | Grafana LGTM (Mimir, Loki, Tempo, Alloy) |
+| **Observability** | Prometheus + VictoriaMetrics + Grafana LGTM (Loki, Tempo, Alloy) |
 | **Storage** | local-path (RWO) + NFS CSI → Synology NAS (RWX) |
 
 ## Architecture
@@ -48,10 +48,11 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Pods -->|metrics| Alloy
+    Pods -->|scrape| Prometheus
     Pods -->|logs| Alloy
-    Alloy --> Mimir & Loki & Tempo
-    Mimir --> Grafana
+    Prometheus -->|remote write| VictoriaMetrics
+    Alloy --> Loki & Tempo
+    VictoriaMetrics --> Grafana
     Loki --> Grafana
     Tempo --> Grafana
     InfluxDB --> Grafana
@@ -164,8 +165,8 @@ flowchart LR
     C --> D["0: Istio CNI, Tailscale"]
     D --> E["1: Istiod, EMQX"]
     E --> F["2-3: ztunnel, Envoy GW"]
-    F --> G["4-5: Mimir, Loki, Tempo, Alloy"]
-    G --> H["6: Grafana"]
+    F --> G["4: Prometheus, Loki, Tempo, InfluxDB"]
+    G --> H["5: VictoriaMetrics, Alloy, Telegraf"]
 ```
 
 | Wave | Component | Description |
@@ -181,10 +182,11 @@ flowchart LR
 | 1 | emqx | MQTT broker |
 | 2 | ztunnel | L4 mTLS proxy |
 | 3 | envoy-gateway | Gateway API |
-| 4 | mimir, loki, tempo | Observability backends |
+| 4 | kube-prometheus-stack | Prometheus + Alertmanager + Grafana |
+| 4 | loki, tempo | Log/trace backends |
 | 4 | influxdb | MQTT time-series |
-| 5 | alloy, telegraf | Collectors |
-| 6 | grafana | Dashboards |
+| 5 | victoria-metrics-single | Long-term metrics storage |
+| 5 | alloy, telegraf | Log/trace/MQTT collectors |
 
 ## Project Structure
 

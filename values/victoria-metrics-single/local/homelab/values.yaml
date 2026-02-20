@@ -1,0 +1,7 @@
+---
+# VictoriaMetrics Homelab-Specific Configuration
+
+server:
+  podLabels:
+    environment: homelab
+    region: local
