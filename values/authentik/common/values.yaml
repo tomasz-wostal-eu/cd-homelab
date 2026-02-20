@@ -103,4 +103,4 @@ redis:
     persistence:
       enabled: true
       size: 1Gi
-      storageClass: local-path
+      storageClass: nfs-rwx
