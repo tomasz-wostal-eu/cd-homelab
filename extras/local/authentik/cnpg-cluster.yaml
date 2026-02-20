@@ -34,7 +34,7 @@ spec:
 
   storage:
     size: 5Gi
-    storageClass: nfs-rwx
+    storageClass: nfs-databases
 
   monitoring:
     enablePodMonitor: false
