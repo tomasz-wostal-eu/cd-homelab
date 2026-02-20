@@ -34,7 +34,7 @@ spec:
 
   storage:
     size: 5Gi
-    storageClass: nfs-databases
+    storageClass: local-path
 
   monitoring:
     enablePodMonitor: false
