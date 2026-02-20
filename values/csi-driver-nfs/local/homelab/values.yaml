@@ -13,7 +13,8 @@ storageClasses:
   - name: nfs-databases
     parameters:
       server: 192.168.55.115
-      share: /volume1/k8s-databases
+      share: /volume1/k8s-volumes
+      subDir: databases/${pvc.metadata.namespace}/${pvc.metadata.name}
     reclaimPolicy: Delete
     volumeBindingMode: Immediate
     mountOptions:
