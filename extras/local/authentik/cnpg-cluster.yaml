@@ -34,7 +34,7 @@ spec:
 
   storage:
     size: 5Gi
-    storageClass: nfs-rwx
+    storageClass: local-path
 
   monitoring:
     enablePodMonitor: false
