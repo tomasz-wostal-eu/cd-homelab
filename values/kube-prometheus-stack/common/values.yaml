@@ -41,7 +41,7 @@ prometheus:
 
     # Remote write to VictoriaMetrics for long-term storage
     remoteWrite:
-      - url: http://victoria-metrics-single-server.monitoring.svc:8428/api/v1/write
+      - url: http://victoria-metrics-victoria-metrics-single-server.monitoring.svc:8428/api/v1/write
         queueConfig:
           capacity: 10000
           maxShards: 5
