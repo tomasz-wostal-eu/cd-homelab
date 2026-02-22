@@ -41,7 +41,7 @@ datasources:
       - name: Prometheus
         type: prometheus
         uid: Prometheus
-        url: http://victoria-metrics-single-server.monitoring.svc:8428
+        url: http://victoria-metrics-victoria-metrics-single-server.monitoring.svc:8428
         access: proxy
         isDefault: true
         jsonData:
