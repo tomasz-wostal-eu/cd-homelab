@@ -11,7 +11,7 @@ server:
   # Persistent storage on NFS
   persistentVolume:
     enabled: true
-    storageClass: nfs-rwx
+    storageClassName: nfs-rwx
     accessModes:
       - ReadWriteMany
     size: 50Gi
