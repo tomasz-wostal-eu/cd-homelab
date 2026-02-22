@@ -77,29 +77,40 @@ spec:
               fi
 
               echo "Bridge not found (HTTP $HTTP_CODE), creating..."
+
+              # Create JSON payload (using cat to avoid shell escaping issues)
+              cat > /tmp/bridge.json << 'ENDJSON'
+              {
+                "type": "mqtt",
+                "name": "ha_bridge",
+                "enable": true,
+                "server": "BRIDGE_SERVER_PLACEHOLDER",
+                "proto_ver": "v5",
+                "username": "BRIDGE_USERNAME_PLACEHOLDER",
+                "password": "BRIDGE_PASSWORD_PLACEHOLDER",
+                "clean_start": false,
+                "ingress": {
+                  "remote": {"topic": "#", "qos": 1},
+                  "local": {
+                    "topic": "${topic}",
+                    "qos": "${qos}",
+                    "retain": "${retain}",
+                    "payload": "${payload}"
+                  }
+                }
+              }
+              ENDJSON
+
+              # Replace placeholders with actual values
+              sed -i "s|BRIDGE_SERVER_PLACEHOLDER|${BRIDGE_SERVER}|g" /tmp/bridge.json
+              sed -i "s|BRIDGE_USERNAME_PLACEHOLDER|${BRIDGE_USERNAME}|g" /tmp/bridge.json
+              sed -i "s|BRIDGE_PASSWORD_PLACEHOLDER|${BRIDGE_PASSWORD}|g" /tmp/bridge.json
+
               RESULT=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
                 http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer $TOKEN" \
-                -d "{
-                  \"type\": \"mqtt\",
-                  \"name\": \"ha_bridge\",
-                  \"enable\": true,
-                  \"server\": \"${BRIDGE_SERVER}\",
-                  \"proto_ver\": \"v5\",
-                  \"username\": \"${BRIDGE_USERNAME}\",
-                  \"password\": \"${BRIDGE_PASSWORD}\",
-                  \"clean_start\": false,
-                  \"ingress\": {
-                    \"remote\": {\"topic\": \"#\", \"qos\": 1},
-                    \"local\": {
-                      \"topic\": \"\${topic}\",
-                      \"qos\": \"\${qos}\",
-                      \"retain\": \"\${retain}\",
-                      \"payload\": \"\${payload}\"
-                    }
-                  }
-                }")
+                -d @/tmp/bridge.json)
 
               RESPONSE_CODE=$(echo "$RESULT" | grep "HTTP_CODE:" | cut -d: -f2)
               RESPONSE_BODY=$(echo "$RESULT" | grep -v "HTTP_CODE:")
