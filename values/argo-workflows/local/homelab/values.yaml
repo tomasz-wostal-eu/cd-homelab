@@ -25,6 +25,20 @@ artifactRepository:
 # PostgreSQL database configuration (CNPG)
 # CNPG creates secret 'argo-workflows-db-app' automatically with username/password
 controller:
+  # Retention policy - keep only last 3 workflows per status
+  retentionPolicy:
+    completed: 3
+    failed: 3
+    errored: 3
+
+  # Default TTL for all workflows - cleanup after 24h
+  workflowDefaults:
+    spec:
+      ttlStrategy:
+        secondsAfterCompletion: 86400  # 24h
+        secondsAfterSuccess: 86400
+        secondsAfterFailure: 86400
+
   persistence:
     archive: true
     postgresql:
