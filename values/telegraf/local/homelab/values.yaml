@@ -44,10 +44,13 @@ config:
           - "next_action"
 
     # Zigbee2MQTT sensors (power, energy, temperature, etc.)
+    # Connect directly to Home Assistant MQTT to avoid EMQX wrapper issue
     - mqtt_consumer:
         name_override: "zigbee"
         servers:
-          - "tcp://emqx.emqx.svc.cluster.local:1883"
+          - "tcp://192.168.55.238:1883"
+        username: "mqttint"
+        password: "$MQTT_PASSWORD"
         topics:
           - "zigbee2mqtt/+"
         qos: 1
