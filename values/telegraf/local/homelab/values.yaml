@@ -32,13 +32,13 @@ config:
               if payload == None:
                   return metric
 
-              # Extract numeric fields - convert to float for InfluxDB schema consistency
+              # Extract numeric fields - preserve original types to match InfluxDB schema
               numeric_fields = ["power", "energy", "voltage", "current", "linkquality", "temperature", "humidity"]
               for field in numeric_fields:
                   if field in payload:
                       val = payload[field]
                       if type(val) == "int" or type(val) == "float":
-                          metric.fields[field] = float(val)
+                          metric.fields[field] = val
 
               # Extract state as tag
               if "state" in payload:
