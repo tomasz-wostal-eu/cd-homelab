@@ -13,6 +13,42 @@ config:
     flush_jitter: "0s"
     debug: false
 
+  processors:
+    # Extract fields from EMQX-wrapped payload for Zigbee metrics
+    - starlark:
+        namepass:
+          - "zigbee"
+        source: |
+          load("json.star", "json")
+
+          def apply(metric):
+              # Get the payload field (EMQX wrapper contains original JSON here)
+              payload_str = metric.fields.get("payload")
+              if payload_str == None:
+                  return metric
+
+              # Parse the JSON payload
+              payload = json.decode(payload_str)
+              if payload == None:
+                  return metric
+
+              # Extract numeric fields
+              numeric_fields = ["power", "energy", "voltage", "current", "linkquality", "temperature", "humidity"]
+              for field in numeric_fields:
+                  if field in payload:
+                      val = payload[field]
+                      if type(val) == "int" or type(val) == "float":
+                          metric.fields[field] = val
+
+              # Extract state as tag
+              if "state" in payload:
+                  metric.tags["state"] = str(payload["state"])
+
+              # Remove the raw payload field (no longer needed)
+              metric.fields.pop("payload")
+
+              return metric
+
   outputs:
     - influxdb_v2:
         urls:
@@ -44,7 +80,7 @@ config:
           - "next_action"
 
     # Zigbee2MQTT sensors (power, energy, temperature, etc.)
-    # EMQX bridge wraps messages - use starlark to extract payload
+    # EMQX bridge wraps messages - starlark processor extracts payload
     - mqtt_consumer:
         name_override: "zigbee"
         servers:
@@ -59,9 +95,6 @@ config:
         data_format: "json"
         topic_tag: "topic"
         json_string_fields:
-          - "state"
-          - "indicator_mode"
-          - "power_outage_memory"
           - "payload"
 
 # Disable service - no inputs require exposed ports
