@@ -12,6 +12,12 @@ persistence:
   accessMode: ReadWriteMany
   size: 10Gi
 
+# Security context for NFS compatibility (avoid chown permission errors)
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
 resources:
   requests:
     cpu: 100m
