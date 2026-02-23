@@ -66,19 +66,17 @@ spec:
                 http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges/mqtt:ha_bridge)
 
               if [ "$HTTP_CODE" = "200" ]; then
-                echo "Bridge already exists and is configured"
-
-                # Verify bridge is connected
-                BRIDGE_STATUS=$(curl -sf -H "Authorization: Bearer $TOKEN" \
-                  http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges/mqtt:ha_bridge | \
-                  grep -o '"status":"[^"]*"' | cut -d'"' -f4)
-                echo "Bridge status: $BRIDGE_STATUS"
-                exit 0
+                echo "Bridge exists, deleting to recreate with correct config..."
+                curl -sf -X DELETE -H "Authorization: Bearer $TOKEN" \
+                  http://emqx.emqx.svc.cluster.local:18083/api/v5/bridges/mqtt:ha_bridge
+                echo "Bridge deleted"
               fi
 
-              echo "Bridge not found (HTTP $HTTP_CODE), creating..."
+              echo "Creating bridge..."
 
               # Create JSON payload (using cat to avoid shell escaping issues)
+              # NOTE: Do not use ${payload} as template - it crashes on backslashes in JSON!
+              # Omitting payload field means EMQX passes the original payload unchanged.
               cat > /tmp/bridge.json << 'ENDJSON'
               {
                 "type": "mqtt",
@@ -94,8 +92,7 @@ spec:
                   "local": {
                     "topic": "${topic}",
                     "qos": "${qos}",
-                    "retain": "${retain}",
-                    "payload": "${payload}"
+                    "retain": "${retain}"
                   }
                 }
               }

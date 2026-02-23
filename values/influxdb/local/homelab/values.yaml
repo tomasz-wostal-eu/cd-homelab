@@ -5,8 +5,12 @@ adminUser:
   user: "admin"
   existingSecret: homelab-influxdb-credentials
 
+# Enable persistence to prevent data loss on pod restarts
 persistence:
-  enabled: false
+  enabled: true
+  storageClass: nfs-rwx
+  accessMode: ReadWriteMany
+  size: 10Gi
 
 resources:
   requests:
