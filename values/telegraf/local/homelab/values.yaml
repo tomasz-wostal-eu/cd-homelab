@@ -44,13 +44,11 @@ config:
           - "next_action"
 
     # Zigbee2MQTT sensors (power, energy, temperature, etc.)
-    # Connect directly to Home Assistant MQTT to avoid EMQX wrapper issue
+    # EMQX bridge wraps messages - use starlark to extract payload
     - mqtt_consumer:
         name_override: "zigbee"
         servers:
-          - "tcp://192.168.55.238:1883"
-        username: "mqttint"
-        password: "$MQTT_PASSWORD"
+          - "tcp://emqx.emqx.svc.cluster.local:1883"
         topics:
           - "zigbee2mqtt/+"
         qos: 1
@@ -64,6 +62,7 @@ config:
           - "state"
           - "indicator_mode"
           - "power_outage_memory"
+          - "payload"
 
 # Disable service - no inputs require exposed ports
 service:
