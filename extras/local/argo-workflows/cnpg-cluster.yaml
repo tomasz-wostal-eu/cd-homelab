@@ -1,0 +1,49 @@
+---
+# CNPG PostgreSQL Cluster for Argo Workflows
+# Provides persistent storage for workflow archive and state
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: argo-workflows-db
+  namespace: argo-workflows
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  instances: 1
+
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.6
+
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "512MB"
+      maintenance_work_mem: "32MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "8MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      work_mem: "2621kB"
+      min_wal_size: "512MB"
+      max_wal_size: "2GB"
+
+  bootstrap:
+    initdb:
+      database: argo_workflows
+      owner: argo_workflows
+
+  storage:
+    size: 5Gi
+    storageClass: local-path
+
+  monitoring:
+    enablePodMonitor: true
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
