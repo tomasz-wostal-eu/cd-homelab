@@ -24,12 +24,9 @@ server:
       enabled: true
     # Session expiry
     sessionExpiry: 240h
-    # User info path from OIDC token
-    userInfoPath: email
-    # RBAC config from ConfigMap
-    configMap:
-      name: sso-rbac
-      key: policy.csv
+    # Whitelist secrets that server can read (for SSO RBAC tokens)
+    secretWhitelist:
+      - sso-admin-token
 
 # S3 artifact repository - Hetzner Object Storage
 artifactRepository:

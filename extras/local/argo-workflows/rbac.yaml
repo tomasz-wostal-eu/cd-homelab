@@ -1,15 +1,38 @@
 ---
-# SSO RBAC ConfigMap - maps SSO users to ServiceAccounts
+# SSO RBAC - Admin ServiceAccount for all authenticated users
 apiVersion: v1
-kind: ConfigMap
+kind: ServiceAccount
 metadata:
-  name: sso-rbac
+  name: sso-admin
   namespace: argo-workflows
-data:
-  # Map all SSO users to admin ServiceAccount
-  policy.csv: |
-    g, tomasz@wostal.eu, role:admin
-  policy.default: role:admin
+  annotations:
+    # Match all authenticated users (any email)
+    workflows.argoproj.io/rbac-rule: "true"
+    workflows.argoproj.io/rbac-rule-precedence: "1"
+---
+# Secret for SSO admin ServiceAccount (required since K8s 1.24)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sso-admin-token
+  namespace: argo-workflows
+  annotations:
+    kubernetes.io/service-account.name: sso-admin
+type: kubernetes.io/service-account-token
+---
+# ClusterRoleBinding to give sso-admin full access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argo-workflows-sso-admin
+subjects:
+  - kind: ServiceAccount
+    name: sso-admin
+    namespace: argo-workflows
+roleRef:
+  kind: ClusterRole
+  name: argo-workflows-admin
+  apiGroup: rbac.authorization.k8s.io
 ---
 # Allow argo-events sensor to create workflows in argo-workflows namespace
 apiVersion: rbac.authorization.k8s.io/v1
