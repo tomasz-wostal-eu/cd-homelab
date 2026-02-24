@@ -1,29 +1,109 @@
 ---
-# Sensor for Codeberg PUSH events - runs terraform-ci
+# Sensor for Codeberg events - iac-hetzner repository
+#
+# Branching strategy:
+#   - Push to develop/next/beta/alpha/feature/*/feat/*/fix/*/hotfix/*/release/*:
+#       → terraform-plan (dry-run)
+#   - Pull Request opened/synchronized to main:
+#       → terraform-plan (dry-run with PR comment)
+#   - Pull Request merged to main:
+#       → terraform-apply (full deployment)
+#
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
-  name: codeberg-push
+  name: codeberg-iac-hetzner
   namespace: argo-events
 spec:
   eventBusName: default
   template:
     serviceAccountName: argo-events-sa
   dependencies:
-    - name: push-event
+    # Push to development branches (not main)
+    - name: push-dev-branch
       eventSourceName: codeberg
       eventName: iac-hetzner
       filters:
         data:
-          # Gitea/Codeberg uses X-Gitea-Event header
           - path: header.X-Gitea-Event.0
             type: string
             value:
               - "push"
+        script: |-
+          -- Filter push events to non-main branches
+          local ref = event.body.ref or ""
+          -- Extract branch name from refs/heads/...
+          local branch = ref:gsub("refs/heads/", "")
+
+          -- Match allowed branches
+          local allowed_patterns = {
+            "^develop$",
+            "^next$",
+            "^beta$",
+            "^alpha$",
+            "^feature/",
+            "^feat/",
+            "^fix/",
+            "^hotfix/",
+            "^release/"
+          }
+
+          for _, pattern in ipairs(allowed_patterns) do
+            if branch:match(pattern) then
+              return true
+            end
+          end
+
+          return false
+
+    # Pull Request opened or synchronized to main
+    - name: pr-to-main
+      eventSourceName: codeberg
+      eventName: iac-hetzner
+      filters:
+        data:
+          - path: header.X-Gitea-Event.0
+            type: string
+            value:
+              - "pull_request"
+          - path: body.action
+            type: string
+            value:
+              - "opened"
+              - "synchronized"
+          - path: body.pull_request.base.ref
+            type: string
+            value:
+              - "main"
+
+    # Pull Request merged to main
+    - name: pr-merged-to-main
+      eventSourceName: codeberg
+      eventName: iac-hetzner
+      filters:
+        data:
+          - path: header.X-Gitea-Event.0
+            type: string
+            value:
+              - "pull_request"
+          - path: body.action
+            type: string
+            value:
+              - "closed"
+          - path: body.pull_request.merged
+            type: bool
+            value:
+              - "true"
+          - path: body.pull_request.base.ref
+            type: string
+            value:
+              - "main"
+
   triggers:
+    # Trigger 1: Push to dev branch → terraform-plan (dry-run)
     - template:
-        name: terraform-ci-pipeline
-        conditions: "push-event"
+        name: terraform-plan-dev-branch
+        conditions: "push-dev-branch"
         conditionsReset:
           - byTime:
               cron: "* * * * *"
@@ -34,12 +114,116 @@ spec:
               apiVersion: argoproj.io/v1alpha1
               kind: Workflow
               metadata:
-                generateName: iac-hetzner-ci-
+                generateName: iac-hetzner-plan-
                 namespace: argo-workflows
+                labels:
+                  workflows.argoproj.io/workflow-template: terraform-plan
+                  app.kubernetes.io/part-of: iac-hetzner
               spec:
-                serviceAccountName: argo-workflow
+                serviceAccountName: argo-infra
                 workflowTemplateRef:
-                  name: terraform-ci
+                  name: terraform-plan
+                arguments:
+                  parameters:
+                    - name: repo-url
+                      value: "ssh://git@codeberg.org/mistwolftech/iac-hetzner.git"
+                    - name: branch
+                      value: ""
+                    - name: commit-sha
+                      value: ""
+                    - name: pr-number
+                      value: ""
+          parameters:
+            # Extract branch name from ref (refs/heads/feature/foo -> feature/foo)
+            - src:
+                dependencyName: push-dev-branch
+                dataKey: body.ref
+                dataTemplate: "{{ .Input | trimPrefix \"refs/heads/\" }}"
+              dest: spec.arguments.parameters.1.value
+            # Extract commit SHA
+            - src:
+                dependencyName: push-dev-branch
+                dataKey: body.after
+              dest: spec.arguments.parameters.2.value
+      retryStrategy:
+        steps: 3
+
+    # Trigger 2: PR to main → terraform-plan with PR comment
+    - template:
+        name: terraform-plan-pr-main
+        conditions: "pr-to-main"
+        conditionsReset:
+          - byTime:
+              cron: "* * * * *"
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: iac-hetzner-pr-plan-
+                namespace: argo-workflows
+                labels:
+                  workflows.argoproj.io/workflow-template: terraform-plan
+                  app.kubernetes.io/part-of: iac-hetzner
+              spec:
+                serviceAccountName: argo-infra
+                workflowTemplateRef:
+                  name: terraform-plan
+                arguments:
+                  parameters:
+                    - name: repo-url
+                      value: "ssh://git@codeberg.org/mistwolftech/iac-hetzner.git"
+                    - name: branch
+                      value: ""
+                    - name: commit-sha
+                      value: ""
+                    - name: pr-number
+                      value: ""
+          parameters:
+            # Use PR head branch
+            - src:
+                dependencyName: pr-to-main
+                dataKey: body.pull_request.head.ref
+              dest: spec.arguments.parameters.1.value
+            # Use PR head commit SHA
+            - src:
+                dependencyName: pr-to-main
+                dataKey: body.pull_request.head.sha
+              dest: spec.arguments.parameters.2.value
+            # Pass PR number for comment
+            - src:
+                dependencyName: pr-to-main
+                dataKey: body.pull_request.number
+                dataTemplate: "{{ .Input }}"
+              dest: spec.arguments.parameters.3.value
+      retryStrategy:
+        steps: 3
+
+    # Trigger 3: PR merged to main → terraform-apply (full deployment)
+    - template:
+        name: terraform-apply-merged
+        conditions: "pr-merged-to-main"
+        conditionsReset:
+          - byTime:
+              cron: "* * * * *"
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: iac-hetzner-apply-
+                namespace: argo-workflows
+                labels:
+                  workflows.argoproj.io/workflow-template: terraform-apply
+                  app.kubernetes.io/part-of: iac-hetzner
+              spec:
+                serviceAccountName: argo-infra
+                workflowTemplateRef:
+                  name: terraform-apply
                 arguments:
                   parameters:
                     - name: repo-url
@@ -48,17 +232,17 @@ spec:
                       value: "main"
                     - name: commit-sha
                       value: ""
+                    - name: skip-ansible
+                      value: "false"
+                    - name: auto-approve
+                      value: "true"
+                    - name: environment
+                      value: "production"
           parameters:
-            # Extract branch from ref (refs/heads/main -> main)
+            # Use merge commit SHA
             - src:
-                dependencyName: push-event
-                dataKey: body.ref
-              dest: spec.arguments.parameters.1.value
-              operation: prepend
-            # Extract commit SHA
-            - src:
-                dependencyName: push-event
-                dataKey: body.after
+                dependencyName: pr-merged-to-main
+                dataKey: body.pull_request.merge_commit_sha
               dest: spec.arguments.parameters.2.value
       retryStrategy:
         steps: 3

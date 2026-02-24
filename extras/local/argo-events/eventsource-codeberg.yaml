@@ -3,6 +3,11 @@
 # Repository: ssh://git@codeberg.org/mistwolftech/iac-hetzner.git
 #
 # Webhook URL: https://argo-events.devopslaboratory.org/iac-hetzner
+#
+# Webhook configuration in Codeberg:
+#   - Events: Push, Pull Request
+#   - Secret: HMAC signature validation
+#   - Authorization: Bearer token
 apiVersion: argoproj.io/v1alpha1
 kind: EventSource
 metadata:
