@@ -12,9 +12,4 @@ cloudflare:
       service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
     - hostname: auth.devopslaboratory.org
       service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
-      originRequest:
-        httpHostHeader: auth.devopslaboratory.org
     # Chart adds catch-all rule automatically
-  # Global origin request settings
-  originRequest:
-    http2Origin: true
