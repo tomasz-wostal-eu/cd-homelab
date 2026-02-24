@@ -16,6 +16,14 @@ spec:
       port: "12001"
       endpoint: /iac-hetzner
       method: POST
+      # Webhook secret for HMAC signature validation (X-Gitea-Signature header)
+      webhookSecret:
+        name: argo-events-webhook-credentials
+        key: codeberg-webhook-secret
+      # Authorization header validation (Bearer token)
+      authSecret:
+        name: argo-events-webhook-credentials
+        key: codeberg-webhook-auth-token
 ---
 # Service for the EventSource webhook endpoint
 apiVersion: v1
