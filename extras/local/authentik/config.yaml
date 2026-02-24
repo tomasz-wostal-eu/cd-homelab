@@ -1,0 +1,10 @@
+---
+# ConfigMap for Authentik domain configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authentik-config
+  namespace: authentik
+data:
+  # Allow Authentik to work on both domains
+  AUTHENTIK_ALLOWED_REDIRECT_URIS: "https://auth.devopslaboratory.org/*,https://authentik-homelab.tailc90e09.ts.net/*"

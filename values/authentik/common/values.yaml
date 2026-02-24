@@ -32,6 +32,9 @@ server:
   name: server
 
   # Environment variables from secrets
+  envFrom:
+    - configMapRef:
+        name: authentik-config
   env:
     # PostgreSQL password from CNPG secret
     - name: AUTHENTIK_POSTGRESQL__PASSWORD
@@ -71,6 +74,9 @@ worker:
   name: worker
 
   # Environment variables from secrets
+  envFrom:
+    - configMapRef:
+        name: authentik-config
   env:
     # PostgreSQL password from CNPG secret
     - name: AUTHENTIK_POSTGRESQL__PASSWORD
