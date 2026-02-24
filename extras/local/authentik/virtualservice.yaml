@@ -1,0 +1,25 @@
+---
+# VirtualService to add X-Forwarded-Proto header for Cloudflare Tunnel
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: authentik-headers
+  namespace: authentik
+spec:
+  hosts:
+    - auth.devopslaboratory.org
+  gateways:
+    - istio-system/homelab-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /
+      headers:
+        request:
+          set:
+            X-Forwarded-Proto: https
+      route:
+        - destination:
+            host: authentik-server
+            port:
+              number: 80
