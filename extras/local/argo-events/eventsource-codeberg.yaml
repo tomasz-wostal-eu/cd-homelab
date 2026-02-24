@@ -1,0 +1,37 @@
+---
+# EventSource for Codeberg (Gitea-compatible) webhooks
+# Repository: ssh://git@codeberg.org/mistwolftech/iac-hetzner.git
+#
+# Webhook URL: https://argo-events.devopslaboratory.org/iac-hetzner
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: codeberg
+  namespace: argo-events
+spec:
+  eventBusName: default
+  webhook:
+    iac-hetzner:
+      # Webhook endpoint configuration
+      port: "12001"
+      endpoint: /iac-hetzner
+      method: POST
+---
+# Service for the EventSource webhook endpoint
+apiVersion: v1
+kind: Service
+metadata:
+  name: codeberg-eventsource-svc
+  namespace: argo-events
+  labels:
+    eventsource-name: codeberg
+spec:
+  type: ClusterIP
+  ports:
+    - port: 12001
+      targetPort: 12001
+      protocol: TCP
+      name: webhook
+  selector:
+    eventsource-name: codeberg
+    owner-name: codeberg

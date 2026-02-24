@@ -30,3 +30,10 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: argo-events-http
+      hostname: argo-events.devopslaboratory.org
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All

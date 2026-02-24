@@ -1,0 +1,64 @@
+---
+# Sensor for Codeberg PUSH events - runs terraform-ci
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: codeberg-push
+  namespace: argo-events
+spec:
+  eventBusName: default
+  template:
+    serviceAccountName: argo-events-sa
+  dependencies:
+    - name: push-event
+      eventSourceName: codeberg
+      eventName: iac-hetzner
+      filters:
+        data:
+          # Gitea/Codeberg uses X-Gitea-Event header
+          - path: header.X-Gitea-Event.0
+            type: string
+            value:
+              - "push"
+  triggers:
+    - template:
+        name: terraform-ci-pipeline
+        conditions: "push-event"
+        conditionsReset:
+          - byTime:
+              cron: "* * * * *"
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: iac-hetzner-ci-
+                namespace: argo-workflows
+              spec:
+                serviceAccountName: argo-workflow
+                workflowTemplateRef:
+                  name: terraform-ci
+                arguments:
+                  parameters:
+                    - name: repo-url
+                      value: "ssh://git@codeberg.org/mistwolftech/iac-hetzner.git"
+                    - name: branch
+                      value: "main"
+                    - name: commit-sha
+                      value: ""
+          parameters:
+            # Extract branch from ref (refs/heads/main -> main)
+            - src:
+                dependencyName: push-event
+                dataKey: body.ref
+              dest: spec.arguments.parameters.1.value
+              operation: prepend
+            # Extract commit SHA
+            - src:
+                dependencyName: push-event
+                dataKey: body.after
+              dest: spec.arguments.parameters.2.value
+      retryStrategy:
+        steps: 3

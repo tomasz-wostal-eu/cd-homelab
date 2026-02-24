@@ -1,0 +1,56 @@
+---
+# DNSEndpoint for External DNS - creates CNAME to Cloudflare Tunnel
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: argo-events-dns
+  namespace: argo-events
+  annotations:
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+spec:
+  endpoints:
+    - dnsName: argo-events.devopslaboratory.org
+      recordTTL: 300
+      recordType: CNAME
+      targets:
+        - d5854df6-8267-4a84-8d51-3431d4c0c15d.cfargotunnel.com
+---
+# HTTPRoute for Argo Events webhooks via Cloudflare Tunnel
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: argo-events-webhook
+  namespace: argo-events
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  parentRefs:
+    - name: homelab-gateway
+      namespace: istio-system
+      group: gateway.networking.k8s.io
+      kind: Gateway
+  hostnames:
+    - argo-events.devopslaboratory.org
+  rules:
+    # Route /iac-hetzner to Codeberg EventSource
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /iac-hetzner
+      backendRefs:
+        - name: codeberg-eventsource-svc
+          port: 12001
+          group: ""
+          kind: Service
+          weight: 1
+    # Route /grafana-k6-custom to Forgejo EventSource (existing)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /grafana-k6-custom
+      backendRefs:
+        - name: forgejo-eventsource-svc
+          port: 12000
+          group: ""
+          kind: Service
+          weight: 1
