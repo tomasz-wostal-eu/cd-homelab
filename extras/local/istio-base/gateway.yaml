@@ -16,3 +16,10 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: authentik-http
+      hostname: authentik.devopslaboratory.org
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
