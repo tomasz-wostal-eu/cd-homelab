@@ -26,7 +26,7 @@ server:
     sessionExpiry: 240h
     # Whitelist secrets that server can read (for SSO RBAC tokens)
     secretWhitelist:
-      - sso-admin-token
+      - sso-admin.service-account-token
 
 # S3 artifact repository - Hetzner Object Storage
 artifactRepository:
