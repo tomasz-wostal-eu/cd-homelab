@@ -1,11 +1,27 @@
 # Argo Workflows homelab config
 
 server:
-  # Disable authentication
+  # SSO authentication via Authentik
   authModes:
-    - server
+    - sso
   extraArgs:
-    - --auth-mode=server
+    - --auth-mode=sso
+  sso:
+    enabled: true
+    issuer: https://auth.devopslaboratory.org/application/o/argo-workflows/
+    clientId:
+      name: argo-workflows-sso
+      key: client-id
+    clientSecret:
+      name: argo-workflows-sso
+      key: client-secret
+    redirectUrl: https://workflows.devopslaboratory.org/oauth2/callback
+    scopes:
+      - openid
+      - email
+      - profile
+    rbac:
+      enabled: true
 
 # S3 artifact repository - Hetzner Object Storage
 artifactRepository:
