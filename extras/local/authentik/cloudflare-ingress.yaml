@@ -9,7 +9,7 @@ metadata:
     external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
 spec:
   endpoints:
-    - dnsName: authentik.devopslaboratory.org
+    - dnsName: auth.devopslaboratory.org
       recordTTL: 300
       recordType: CNAME
       targets:
@@ -31,7 +31,7 @@ spec:
       group: gateway.networking.k8s.io
       kind: Gateway
   hostnames:
-    - authentik.devopslaboratory.org
+    - auth.devopslaboratory.org
   rules:
     - matches:
         - path:

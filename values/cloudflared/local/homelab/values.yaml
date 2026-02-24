@@ -10,6 +10,6 @@ cloudflare:
   ingress:
     - hostname: grafana.devopslaboratory.org
       service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
-    - hostname: authentik.devopslaboratory.org
+    - hostname: auth.devopslaboratory.org
       service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
     # Chart adds catch-all rule automatically
