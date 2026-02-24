@@ -22,6 +22,14 @@ server:
       - profile
     rbac:
       enabled: true
+    # Session expiry
+    sessionExpiry: 240h
+    # User info path from OIDC token
+    userInfoPath: email
+    # RBAC config from ConfigMap
+    configMap:
+      name: sso-rbac
+      key: policy.csv
 
 # S3 artifact repository - Hetzner Object Storage
 artifactRepository:

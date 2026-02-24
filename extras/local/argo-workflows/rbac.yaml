@@ -1,4 +1,16 @@
 ---
+# SSO RBAC ConfigMap - maps SSO users to ServiceAccounts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sso-rbac
+  namespace: argo-workflows
+data:
+  # Map all SSO users to admin ServiceAccount
+  policy.csv: |
+    g, tomasz@wostal.eu, role:admin
+  policy.default: role:admin
+---
 # Allow argo-events sensor to create workflows in argo-workflows namespace
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
