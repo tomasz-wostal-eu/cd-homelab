@@ -13,7 +13,7 @@ spec:
       recordTTL: 300
       recordType: CNAME
       targets:
-        - 9f0067e6-dfcb-4bc1-a12f-751763b7a14a.cfargotunnel.com
+        - d5854df6-8267-4a84-8d51-3431d4c0c15d.cfargotunnel.com
 ---
 # HTTPRoute for Grafana via Istio Gateway
 apiVersion: gateway.networking.k8s.io/v1
