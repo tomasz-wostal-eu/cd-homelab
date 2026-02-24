@@ -6,5 +6,7 @@ metadata:
   name: authentik-config
   namespace: authentik
 data:
-  # Allow Authentik to work on both domains
-  AUTHENTIK_ALLOWED_REDIRECT_URIS: "https://auth.devopslaboratory.org/*,https://authentik-homelab.tailc90e09.ts.net/*"
+  # Trust all proxies (Cloudflare, Istio Gateway)
+  AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS: "0.0.0.0/0,::/0"
+  # Set the correct headers for proxy
+  AUTHENTIK_WEB__HEADERS: "X-Forwarded-Proto"
