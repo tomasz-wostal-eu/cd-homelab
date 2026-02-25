@@ -4,7 +4,9 @@ fullnameOverride: external-dns-ovh
 
 # Prometheus metrics configuration
 serviceMonitor:
-  enabled: false
+  enabled: true
+  additionalLabels:
+    release: kube-prometheus-stack
 
 # Service annotations for Prometheus discovery
 service:

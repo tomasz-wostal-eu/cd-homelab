@@ -98,6 +98,14 @@ dashboardProviders:
         editable: true
         options:
           path: /var/lib/grafana/dashboards/sealed-secrets
+      - name: 'external-dns'
+        orgId: 1
+        folder: 'External DNS'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/external-dns
 
 # Dashboards from Grafana.com and URLs
 dashboards:
@@ -251,6 +259,12 @@ dashboards:
       datasource:
         - name: DS_PROMETHEUS
           value: Prometheus
+
+  external-dns:
+    external-dns:
+      gnetId: 15038
+      revision: 3
+      datasource: Prometheus
 
 # Sidecar configuration for auto-loading dashboards
 sidecar:
