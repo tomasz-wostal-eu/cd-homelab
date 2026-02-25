@@ -37,7 +37,7 @@ data:
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           client_type: confidential
           client_id: grafana
-          # client_secret is generated automatically or set via env
+          client_secret: !Env GRAFANA_OAUTH_CLIENT_SECRET
           redirect_uris: |
             https://grafana.devopslaboratory.org/login/generic_oauth
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
