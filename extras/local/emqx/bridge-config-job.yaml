@@ -87,6 +87,12 @@ spec:
                 "username": "BRIDGE_USERNAME_PLACEHOLDER",
                 "password": "BRIDGE_PASSWORD_PLACEHOLDER",
                 "clean_start": false,
+                "keepalive": "30s",
+                "retry_interval": "5s",
+                "resource_opts": {
+                  "health_check_interval": "15s",
+                  "start_timeout": "5s"
+                },
                 "ingress": {
                   "remote": {"topic": "#", "qos": 1},
                   "local": {

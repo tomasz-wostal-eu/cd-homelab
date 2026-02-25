@@ -1,0 +1,51 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mqtt-pipeline-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: mqtt-pipeline
+      rules:
+        # Alert when Telegraf has InfluxDB write errors
+        - alert: TelegrafInfluxDBWriteErrors
+          expr: increase(internal_write_errors{job="telegraf", output="influxdb_v2"}[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Telegraf cannot write to InfluxDB"
+            description: "Telegraf has been failing to write to InfluxDB for 5 minutes. Check InfluxDB connectivity."
+
+        # Alert when Telegraf buffer is filling up (sign of write problems)
+        - alert: TelegrafBufferFilling
+          expr: internal_write_buffer_size{job="telegraf", output="influxdb_v2"} > 1000
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Telegraf write buffer is filling up"
+            description: "Telegraf buffer has {{ $value }} metrics queued. Possible InfluxDB connectivity issue."
+
+        # Alert when no zigbee messages received by Telegraf
+        - alert: NoMQTTMessagesReceived
+          expr: increase(internal_mqtt_consumer_messages_received{job="telegraf"}[10m]) == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "No MQTT messages received"
+            description: "Telegraf has not received any MQTT messages in 10 minutes. Check EMQX bridge."
+
+        # Alert when MQTT consumer has errors
+        - alert: TelegrafMQTTConsumerErrors
+          expr: increase(internal_gather_errors{job="telegraf", input="mqtt_consumer"}[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Telegraf MQTT consumer errors"
+            description: "Telegraf MQTT consumer is experiencing errors."
