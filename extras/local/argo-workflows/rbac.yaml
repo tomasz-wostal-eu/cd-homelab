@@ -34,7 +34,7 @@ roleRef:
   name: argo-workflows-admin
   apiGroup: rbac.authorization.k8s.io
 ---
-# Allow argo-events sensor to create workflows in argo-workflows namespace
+# Allow argo-events sensor to create workflows and view logs in argo-workflows namespace
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -44,6 +44,10 @@ rules:
   - apiGroups: ["argoproj.io"]
     resources: ["workflows", "workflowtemplates"]
     verbs: ["create", "get", "list", "watch"]
+  # Pod logs for workflow monitoring
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
