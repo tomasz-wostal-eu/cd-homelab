@@ -94,7 +94,7 @@ spec:
                   "start_timeout": "5s"
                 },
                 "ingress": {
-                  "remote": {"topic": "#", "qos": 1},
+                  "remote": {"topic": "zigbee2mqtt/#", "qos": 1},
                   "local": {
                     "topic": "${topic}",
                     "qos": "${qos}",
