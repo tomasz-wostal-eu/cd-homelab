@@ -104,6 +104,12 @@ worker:
         secretKeyRef:
           name: authentik-secrets
           key: AUTHENTIK_REDIS__PASSWORD
+    # OAuth client secrets for blueprints
+    - name: GRAFANA_OAUTH_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: authentik-secrets
+          key: GRAFANA_OAUTH_CLIENT_SECRET
 
 # Redis (embedded)
 redis:
