@@ -32,9 +32,9 @@ grafana.ini:
     role_attribute_path: contains(groups[*], 'Grafana Admins') && 'Admin' || contains(groups[*], 'Grafana Editors') && 'Editor' || 'Viewer'
     # Allow OAuth users to be org admins
     allow_assign_grafana_admin: true
-  # Disable anonymous access when OAuth is configured
+  # Disable default login when OAuth is configured
   auth:
-    disable_login_form: false  # Keep login form for admin fallback
+    disable_login_form: true
 
 # Enable sidecar to auto-load dashboards from ConfigMaps
 sidecar:
