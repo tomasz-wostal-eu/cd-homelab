@@ -222,8 +222,8 @@ dashboards:
 
   argo-workflows:
     argo-workflows:
-      gnetId: 20348
-      revision: 4
+      gnetId: 21393
+      revision: 1
       datasource:
         - name: DS_PROMETHEUS
           value: Prometheus
