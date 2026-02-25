@@ -225,7 +225,7 @@ dashboards:
       gnetId: 21393
       revision: 1
       datasource:
-        - name: DS_PROMETHEUS
+        - name: DS_THANOS
           value: Prometheus
 
   emqx:
