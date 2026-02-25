@@ -13,6 +13,16 @@ server:
       cpu: 500m
       memory: 512Mi
 
+  # Mount custom blueprints
+  volumes:
+    - name: blueprints-grafana
+      configMap:
+        name: authentik-blueprint-grafana
+  volumeMounts:
+    - name: blueprints-grafana
+      mountPath: /blueprints/custom/grafana.yaml
+      subPath: grafana.yaml
+
 # Worker configuration for homelab (single replica)
 worker:
   replicas: 1
@@ -24,6 +34,16 @@ worker:
     limits:
       cpu: 500m
       memory: 512Mi
+
+  # Mount custom blueprints (worker applies blueprints)
+  volumes:
+    - name: blueprints-grafana
+      configMap:
+        name: authentik-blueprint-grafana
+  volumeMounts:
+    - name: blueprints-grafana
+      mountPath: /blueprints/custom/grafana.yaml
+      subPath: grafana.yaml
 
 # Redis resources for homelab
 redis:
