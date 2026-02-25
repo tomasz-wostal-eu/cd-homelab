@@ -6,10 +6,10 @@ controller:
     enabled: true
     port: 9090
     path: /metrics
-  podAnnotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "9090"
-    prometheus.io/path: "/metrics"
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack
 
 # Server configuration
 server:
