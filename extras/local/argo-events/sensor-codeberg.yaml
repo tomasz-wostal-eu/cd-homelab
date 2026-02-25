@@ -43,6 +43,12 @@ spec:
           end
 
           return false
+      transform:
+        script: |-
+          -- Transform ref to branch name (strip refs/heads/ prefix)
+          local ref = event.body.ref or ""
+          event.body.branch = ref:gsub("refs/heads/", "")
+          return event
 
   triggers:
     - template:
@@ -79,10 +85,10 @@ spec:
                     - name: pr-number
                       value: ""
           parameters:
+            # Use transformed branch name (refs/heads/ stripped by transform)
             - src:
                 dependencyName: push-dev-branch
-                dataKey: body.ref
-                dataTemplate: "{{ .Input | trimPrefix \"refs/heads/\" }}"
+                dataKey: body.branch
               dest: spec.arguments.parameters.1.value
             - src:
                 dependencyName: push-dev-branch
