@@ -61,7 +61,9 @@ server:
   metrics:
     enabled: true
     serviceMonitor:
-      enabled: false
+      enabled: true
+      labels:
+        release: kube-prometheus-stack
 
   service:
     type: ClusterIP

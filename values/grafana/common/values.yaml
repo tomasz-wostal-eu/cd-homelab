@@ -106,6 +106,14 @@ dashboardProviders:
         editable: true
         options:
           path: /var/lib/grafana/dashboards/external-dns
+      - name: 'authentik'
+        orgId: 1
+        folder: 'Authentik'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/authentik
 
 # Dashboards from Grafana.com and URLs
 dashboards:
@@ -265,6 +273,14 @@ dashboards:
       gnetId: 15038
       revision: 3
       datasource: Prometheus
+
+  authentik:
+    authentik:
+      gnetId: 23043
+      revision: 1
+      datasource:
+        - name: DS_PROMETHEUS
+          value: Prometheus
 
 # Sidecar configuration for auto-loading dashboards
 sidecar:
