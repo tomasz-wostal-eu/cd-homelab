@@ -20,7 +20,17 @@ metadata:
     kubernetes.io/service-account.name: sso-admin
 type: kubernetes.io/service-account-token
 ---
-# ClusterRoleBinding to give sso-admin full access
+# ClusterRole for pod logs access (required for viewing workflow logs in UI)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argo-workflows-pod-logs
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+# ClusterRoleBinding to give sso-admin full access to workflows
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -32,6 +42,20 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: argo-workflows-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+# ClusterRoleBinding to give sso-admin access to pod logs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argo-workflows-sso-admin-logs
+subjects:
+  - kind: ServiceAccount
+    name: sso-admin
+    namespace: argo-workflows
+roleRef:
+  kind: ClusterRole
+  name: argo-workflows-pod-logs
   apiGroup: rbac.authorization.k8s.io
 ---
 # Allow argo-events sensor to create workflows and view logs in argo-workflows namespace
