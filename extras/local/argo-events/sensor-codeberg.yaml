@@ -1,38 +1,26 @@
 ---
-# Sensor for Codeberg events - iac-hetzner repository
+# Sensor for Codeberg PUSH events - iac-hetzner repository
 #
-# Branching strategy:
-#   - Push to develop/next/beta/alpha/feature/*/feat/*/fix/*/hotfix/*/release/*:
-#       → terraform-plan (dry-run)
-#   - Pull Request opened/synchronized to main:
-#       → terraform-plan (dry-run with PR comment)
-#   - Pull Request merged to main:
-#       → terraform-apply (full deployment)
+# Push to develop/next/beta/alpha/feature/*/feat/*/fix/*/hotfix/*/release/*:
+#   → terraform-plan (dry-run)
 #
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
-  name: codeberg-iac-hetzner
+  name: codeberg-iac-hetzner-push
   namespace: argo-events
 spec:
   eventBusName: default
   template:
     serviceAccountName: argo-events-sa
   dependencies:
-    # Push to development branches (not main)
     - name: push-dev-branch
       eventSourceName: codeberg
-      eventName: iac-hetzner
+      eventName: iac-hetzner-push
       filters:
-        data:
-          - path: header.X-Gitea-Event.0
-            type: string
-            value:
-              - "push"
         script: |-
           -- Filter push events to non-main branches
           local ref = event.body.ref or ""
-          -- Extract branch name from refs/heads/...
           local branch = ref:gsub("refs/heads/", "")
 
           -- Match allowed branches
@@ -56,51 +44,7 @@ spec:
 
           return false
 
-    # Pull Request opened or synchronized to main
-    - name: pr-to-main
-      eventSourceName: codeberg
-      eventName: iac-hetzner
-      filters:
-        data:
-          - path: header.X-Gitea-Event.0
-            type: string
-            value:
-              - "pull_request"
-          - path: body.action
-            type: string
-            value:
-              - "opened"
-              - "synchronized"
-          - path: body.pull_request.base.ref
-            type: string
-            value:
-              - "main"
-
-    # Pull Request merged to main
-    - name: pr-merged-to-main
-      eventSourceName: codeberg
-      eventName: iac-hetzner
-      filters:
-        data:
-          - path: header.X-Gitea-Event.0
-            type: string
-            value:
-              - "pull_request"
-          - path: body.action
-            type: string
-            value:
-              - "closed"
-          - path: body.pull_request.merged
-            type: bool
-            value:
-              - "true"
-          - path: body.pull_request.base.ref
-            type: string
-            value:
-              - "main"
-
   triggers:
-    # Trigger 1: Push to dev branch → terraform-plan (dry-run)
     - template:
         name: terraform-plan-dev-branch
         conditions: "push-dev-branch"
@@ -119,6 +63,7 @@ spec:
                 labels:
                   workflows.argoproj.io/workflow-template: terraform-plan
                   app.kubernetes.io/part-of: iac-hetzner
+                  trigger: push
               spec:
                 serviceAccountName: argo-infra
                 workflowTemplateRef:
@@ -134,21 +79,49 @@ spec:
                     - name: pr-number
                       value: ""
           parameters:
-            # Extract branch name from ref (refs/heads/feature/foo -> feature/foo)
             - src:
                 dependencyName: push-dev-branch
                 dataKey: body.ref
                 dataTemplate: "{{ .Input | trimPrefix \"refs/heads/\" }}"
               dest: spec.arguments.parameters.1.value
-            # Extract commit SHA
             - src:
                 dependencyName: push-dev-branch
                 dataKey: body.after
               dest: spec.arguments.parameters.2.value
       retryStrategy:
         steps: 3
+---
+# Sensor for Codeberg PR opened/synchronized events - iac-hetzner repository
+#
+# Pull Request opened/synchronized to main:
+#   → terraform-plan (dry-run with PR comment)
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: codeberg-iac-hetzner-pr-plan
+  namespace: argo-events
+spec:
+  eventBusName: default
+  template:
+    serviceAccountName: argo-events-sa
+  dependencies:
+    - name: pr-to-main
+      eventSourceName: codeberg
+      eventName: iac-hetzner-pr
+      filters:
+        data:
+          - path: body.action
+            type: string
+            value:
+              - "opened"
+              - "synchronize"
+          - path: body.pull_request.base.ref
+            type: string
+            value:
+              - "main"
 
-    # Trigger 2: PR to main → terraform-plan with PR comment
+  triggers:
     - template:
         name: terraform-plan-pr-main
         conditions: "pr-to-main"
@@ -167,6 +140,7 @@ spec:
                 labels:
                   workflows.argoproj.io/workflow-template: terraform-plan
                   app.kubernetes.io/part-of: iac-hetzner
+                  trigger: pull-request
               spec:
                 serviceAccountName: argo-infra
                 workflowTemplateRef:
@@ -182,17 +156,14 @@ spec:
                     - name: pr-number
                       value: ""
           parameters:
-            # Use PR head branch
             - src:
                 dependencyName: pr-to-main
                 dataKey: body.pull_request.head.ref
               dest: spec.arguments.parameters.1.value
-            # Use PR head commit SHA
             - src:
                 dependencyName: pr-to-main
                 dataKey: body.pull_request.head.sha
               dest: spec.arguments.parameters.2.value
-            # Pass PR number for comment
             - src:
                 dependencyName: pr-to-main
                 dataKey: body.pull_request.number
@@ -200,8 +171,41 @@ spec:
               dest: spec.arguments.parameters.3.value
       retryStrategy:
         steps: 3
+---
+# Sensor for Codeberg PR merged events - iac-hetzner repository
+#
+# Pull Request merged to main:
+#   → terraform-apply (full deployment)
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: codeberg-iac-hetzner-pr-apply
+  namespace: argo-events
+spec:
+  eventBusName: default
+  template:
+    serviceAccountName: argo-events-sa
+  dependencies:
+    - name: pr-merged-to-main
+      eventSourceName: codeberg
+      eventName: iac-hetzner-pr
+      filters:
+        data:
+          - path: body.action
+            type: string
+            value:
+              - "closed"
+          - path: body.pull_request.merged
+            type: bool
+            value:
+              - "true"
+          - path: body.pull_request.base.ref
+            type: string
+            value:
+              - "main"
 
-    # Trigger 3: PR merged to main → terraform-apply (full deployment)
+  triggers:
     - template:
         name: terraform-apply-merged
         conditions: "pr-merged-to-main"
@@ -220,6 +224,7 @@ spec:
                 labels:
                   workflows.argoproj.io/workflow-template: terraform-apply
                   app.kubernetes.io/part-of: iac-hetzner
+                  trigger: pr-merged
               spec:
                 serviceAccountName: argo-infra
                 workflowTemplateRef:
@@ -239,7 +244,6 @@ spec:
                     - name: environment
                       value: "production"
           parameters:
-            # Use merge commit SHA
             - src:
                 dependencyName: pr-merged-to-main
                 dataKey: body.pull_request.merge_commit_sha

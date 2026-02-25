@@ -2,12 +2,11 @@
 # EventSource for Codeberg (Gitea-compatible) webhooks
 # Repository: ssh://git@codeberg.org/mistwolftech/iac-hetzner.git
 #
-# Webhook URL: https://argo-events.devopslaboratory.org/iac-hetzner
+# Webhook URLs:
+#   - Push: https://argo-events.devopslaboratory.org/iac-hetzner/push
+#   - PR:   https://argo-events.devopslaboratory.org/iac-hetzner/pr
 #
-# Webhook configuration in Codeberg:
-#   - Events: Push, Pull Request
-#   - Secret: HMAC signature validation
-#   - Authorization: Bearer token
+# Separate webhooks needed in Codeberg for each event type
 apiVersion: argoproj.io/v1alpha1
 kind: EventSource
 metadata:
@@ -16,16 +15,25 @@ metadata:
 spec:
   eventBusName: default
   webhook:
-    iac-hetzner:
-      # Webhook endpoint configuration
+    # Push events - triggers plan for non-main branches
+    iac-hetzner-push:
       port: "12001"
-      endpoint: /iac-hetzner
+      endpoint: /iac-hetzner/push
       method: POST
-      # Webhook secret for HMAC signature validation (X-Gitea-Signature header)
       webhookSecret:
         name: argo-events-webhook-credentials
         key: codeberg-webhook-secret
-      # Authorization header validation (Bearer token)
+      authSecret:
+        name: argo-events-webhook-credentials
+        key: codeberg-webhook-auth-token
+    # Pull Request events - triggers plan/apply based on action
+    iac-hetzner-pr:
+      port: "12001"
+      endpoint: /iac-hetzner/pr
+      method: POST
+      webhookSecret:
+        name: argo-events-webhook-credentials
+        key: codeberg-webhook-secret
       authSecret:
         name: argo-events-webhook-credentials
         key: codeberg-webhook-auth-token
