@@ -54,6 +54,12 @@ server:
         secretKeyRef:
           name: authentik-secrets
           key: AUTHENTIK_REDIS__PASSWORD
+    # OAuth client secrets for blueprints
+    - name: GRAFANA_OAUTH_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: authentik-secrets
+          key: GRAFANA_OAUTH_CLIENT_SECRET
 
   ingress:
     enabled: false  # We use Tailscale ingress
