@@ -4,6 +4,8 @@
 configs:
   params:
     server.insecure: true
+    # Required for OIDC behind reverse proxy
+    server.rootpath: ""
 
 server:
   service:

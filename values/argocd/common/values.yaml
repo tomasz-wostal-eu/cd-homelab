@@ -3,8 +3,28 @@ global:
   logging:
     level: info
 
-# SSH known hosts configuration
+# ArgoCD configuration
 configs:
+  # OIDC configuration via Authentik
+  cm:
+    url: https://cd.devopslaboratory.org
+    oidc.config: |
+      name: Authentik
+      issuer: https://auth.devopslaboratory.org/application/o/argocd/
+      clientID: argocd
+      clientSecret: $argocd-oidc-secret:oidc.authentik.clientSecret
+      requestedScopes:
+        - openid
+        - profile
+        - email
+
+  # RBAC configuration
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      # Admin group from Authentik
+      g, authentik Admins, role:admin
+
   ssh:
     extraHosts: |
       github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl

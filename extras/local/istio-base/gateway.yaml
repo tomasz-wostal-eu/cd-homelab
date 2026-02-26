@@ -37,3 +37,10 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: argocd-http
+      hostname: cd.devopslaboratory.org
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
