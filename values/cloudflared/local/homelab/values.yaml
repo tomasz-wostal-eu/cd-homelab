@@ -16,4 +16,6 @@ cloudflare:
       service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
     - hostname: argo-events.devopslaboratory.org
       service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
+    - hostname: cd.devopslaboratory.org
+      service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
     # Chart adds catch-all rule automatically
