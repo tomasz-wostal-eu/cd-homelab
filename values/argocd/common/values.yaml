@@ -5,9 +5,20 @@ global:
 
 # ArgoCD configuration
 configs:
-  # OIDC configuration via Authentik
+  # Disable local admin account (only Authentik login)
+  params:
+    server.disable.auth: false
+  secret:
+    argocdServerAdminPassword: ""
+    argocdServerAdminPasswordMtime: ""
+
+  # ConfigMap settings
   cm:
+    # Disable admin user
+    admin.enabled: "false"
+    # ArgoCD URL
     url: https://cd.devopslaboratory.org
+    # OIDC configuration via Authentik
     oidc.config: |
       name: Authentik
       issuer: https://auth.devopslaboratory.org/application/o/argocd/
@@ -25,6 +36,7 @@ configs:
       # Admin group from Authentik
       g, authentik Admins, role:admin
 
+  # SSH known hosts
   ssh:
     extraHosts: |
       github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
@@ -77,6 +89,6 @@ applicationSet:
 notifications:
   enabled: false
 
-# Dex (disabled - using built-in auth)
+# Dex (disabled - using Authentik OIDC)
 dex:
   enabled: false
