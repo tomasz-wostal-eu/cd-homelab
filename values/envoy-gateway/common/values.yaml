@@ -8,7 +8,3 @@ config:
       controllerName: gateway.envoyproxy.io/gatewayclass-controller
     provider:
       type: Kubernetes
-    telemetry:
-      metrics:
-        prometheus:
-          disable: false
