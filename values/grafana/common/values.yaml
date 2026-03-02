@@ -42,14 +42,6 @@ dashboardProviders:
         editable: true
         options:
           path: /var/lib/grafana/dashboards/istio
-      - name: 'envoy-gateway'
-        orgId: 1
-        folder: 'Envoy Gateway'
-        type: file
-        disableDeletion: false
-        editable: true
-        options:
-          path: /var/lib/grafana/dashboards/envoy-gateway
       - name: 'cert-manager'
         orgId: 1
         folder: 'Cert Manager'
