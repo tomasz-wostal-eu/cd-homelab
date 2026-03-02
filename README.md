@@ -14,9 +14,10 @@ Production-grade Kubernetes homelab running locally on macOS/Linux with full Git
 | **Runtime** | Podman (rootful) / Docker Desktop |
 | **Cluster** | k3d (k3s in containers) - 1 server + 3 agents |
 | **GitOps** | ArgoCD with ApplicationSets |
+| **Auth** | Authentik (OIDC/OAuth2 provider) |
 | **Service Mesh** | Istio Ambient (sidecar-less, L4 mTLS) |
 | **Gateway** | Envoy Gateway (Gateway API) |
-| **Ingress** | Tailscale MagicDNS (automatic HTTPS) |
+| **Ingress** | Cloudflare Tunnel (public) + Tailscale (private) |
 | **Secrets** | Sealed Secrets + External Secrets → Azure Key Vault |
 | **TLS** | cert-manager with self-signed CA |
 | **Observability** | Prometheus + VictoriaMetrics + Grafana LGTM (Loki, Tempo, Alloy) |
@@ -26,11 +27,13 @@ Production-grade Kubernetes homelab running locally on macOS/Linux with full Git
 
 ```mermaid
 flowchart LR
-    Forgejo -->|SSH| ArgoCD
+    GitHub -->|SSH| ArgoCD
     AzureKV[Azure KV] --> ExternalSecrets
     ExternalSecrets --> K8s[Kubernetes]
     ArgoCD -->|deploy| K8s
-    K8s --> Tailscale -->|HTTPS| Users
+    Authentik -->|OIDC| ArgoCD & Grafana
+    K8s --> Cloudflare[Cloudflare Tunnel] -->|HTTPS| Users
+    K8s --> Tailscale -->|HTTPS| PrivateUsers[Private Access]
 ```
 
 ### Platform Components
@@ -103,17 +106,24 @@ kubectl apply -f bootstrap/argocd-projects/
 kubectl apply -f applicationsets/
 
 # 6. Access ArgoCD UI
-just argocd-ui
+# https://cd.devopslaboratory.org (login via Authentik)
 ```
 
 ## Services
 
-### Tailscale Ingress (MagicDNS)
+### Cloudflare Tunnel (Public Access)
+
+| Service | URL | Auth |
+|---------|-----|------|
+| ArgoCD | https://cd.devopslaboratory.org | Authentik OIDC |
+| Authentik | https://auth.devopslaboratory.org | Built-in |
+| Grafana | https://grafana.devopslaboratory.org | Authentik OAuth2 |
+| Argo Workflows | https://workflows.devopslaboratory.org | - |
+
+### Tailscale (Private Access)
 
 | Service | URL |
 |---------|-----|
-| ArgoCD | https://argocd-homelab.tailc90e09.ts.net |
-| Grafana | https://grafana-homelab.tailc90e09.ts.net |
 | EMQX Dashboard | https://emqx-homelab.tailc90e09.ts.net |
 | InfluxDB | https://influxdb-homelab.tailc90e09.ts.net |
 
@@ -162,25 +172,28 @@ just events             # Recent cluster events
 flowchart LR
     A["-3: ArgoCD"] --> B["-2: cert-manager, Sealed Secrets"]
     B --> C["-1: External Secrets, Istio Base"]
-    C --> D["0: Istio CNI, Tailscale"]
+    C --> D["0: Istio CNI, Tailscale, Cloudflared"]
     D --> E["1: Istiod, EMQX"]
-    E --> F["2-3: ztunnel, Envoy GW"]
-    F --> G["4: Prometheus, Loki, Tempo, InfluxDB"]
-    G --> H["5: VictoriaMetrics, Alloy, Telegraf"]
+    E --> F["2: ztunnel, Authentik"]
+    F --> G["3: Envoy GW"]
+    G --> H["4: Prometheus, Loki, Tempo, InfluxDB"]
+    H --> I["5: VictoriaMetrics, Alloy, Telegraf"]
 ```
 
 | Wave | Component | Description |
 |------|-----------|-------------|
-| -3 | argocd | GitOps controller |
+| -3 | argocd | GitOps controller (OIDC via Authentik) |
 | -2 | cert-manager | TLS certificate management |
 | -2 | sealed-secrets | Encrypted secrets in Git |
 | -1 | external-secrets | Azure Key Vault sync |
 | -1 | istio-base | Istio CRDs |
 | 0 | istio-cni | CNI for ambient mesh |
 | 0 | tailscale | Tailscale operator |
+| 0 | cloudflared | Cloudflare Tunnel |
 | 1 | istiod | Istio control plane |
 | 1 | emqx | MQTT broker |
 | 2 | ztunnel | L4 mTLS proxy |
+| 2 | authentik | OIDC/OAuth2 provider |
 | 3 | envoy-gateway | Gateway API |
 | 4 | kube-prometheus-stack | Prometheus + Alertmanager + Grafana |
 | 4 | loki, tempo | Log/trace backends |
@@ -194,17 +207,19 @@ flowchart LR
 cd-homelab/
 ├── applicationsets/           # ArgoCD ApplicationSets
 │   ├── argocd.yaml
+│   ├── authentik.yaml
+│   ├── cloudflared.yaml
 │   ├── cert-manager.yaml
 │   ├── sealed-secrets.yaml
 │   ├── external-secrets.yaml
 │   ├── istio-*.yaml
 │   ├── envoy-gateway.yaml
 │   ├── tailscale.yaml
-│   ├── grafana-mimir.yaml
+│   ├── kube-prometheus-stack.yaml
+│   ├── victoria-metrics-single.yaml
 │   ├── grafana-loki.yaml
 │   ├── grafana-tempo.yaml
 │   ├── grafana-alloy.yaml
-│   ├── grafana.yaml
 │   ├── influxdb.yaml
 │   ├── telegraf.yaml
 │   └── emqx.yaml
@@ -222,7 +237,8 @@ cd-homelab/
 │       └── local/homelab/values.yaml
 │
 ├── extras/local/              # Additional K8s resources
-│   ├── argocd/
+│   ├── argocd/                # OIDC secret, Cloudflare ingress
+│   ├── authentik/             # Secrets, Cloudflare ingress
 │   ├── cert-manager/
 │   ├── emqx/
 │   ├── grafana/
@@ -296,10 +312,9 @@ No sidecars - ztunnel runs per-node and handles L4 mTLS automatically.
 
 ```mermaid
 flowchart LR
-    Internet --> Tailscale --> Gateway[Envoy Gateway]
-    Gateway --> HTTPRoute --> ServiceA
-    Gateway --> TCPRoute --> ServiceB
-    Gateway --> TLSRoute --> ServiceC
+    Internet --> Cloudflare[Cloudflare Tunnel] --> Gateway[Istio Gateway]
+    PrivateNet[Private Network] --> Tailscale --> Gateway
+    Gateway --> HTTPRoute --> Services
 ```
 
 ## Troubleshooting
@@ -368,11 +383,28 @@ kubectl label namespace <ns> istio.io/dataplane-mode=ambient
 kubectl logs -n istio-system -l app=ztunnel --tail=50
 ```
 
+## Authentication (Authentik)
+
+Authentik provides centralized OIDC/OAuth2 authentication:
+
+| Application | Client ID | Auth Type |
+|-------------|-----------|-----------|
+| ArgoCD | `argocd` | OIDC |
+| Grafana | `grafana` | OAuth2 |
+
+- **ArgoCD**: Local admin disabled, only Authentik login
+- **Grafana**: OAuth2 with automatic user provisioning
+- **Admin group**: `authentik Admins` → admin role in apps
+
 ## Azure Key Vault Secrets
 
 | Secret | Used By |
 |--------|---------|
-| `argocd-cd-homelab-ssh-key` | ArgoCD Git access (Forgejo) |
+| `argocd-cd-homelab-ssh-key` | ArgoCD Git access (GitHub) |
+| `homelab-argocd-oidc-client-secret` | ArgoCD OIDC (Authentik) |
+| `authentik-secret-key` | Authentik encryption |
+| `authentik-redis-password` | Authentik Redis |
+| `homelab-grafana-oauth-client-secret` | Grafana OAuth2 (Authentik) |
 | `homelab-tailscale-client-id` | Tailscale operator |
 | `homelab-tailscale-client-secret` | Tailscale operator |
 | `emqx-bridge-server` | EMQX MQTT bridge |
