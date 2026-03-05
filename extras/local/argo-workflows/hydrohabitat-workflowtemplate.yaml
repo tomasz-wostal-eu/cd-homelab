@@ -1,0 +1,873 @@
+---
+# Hydrohabitat CI/CD WorkflowTemplate
+#
+# Pipeline modes:
+#   1. Push to main: CI → build → push to GHCR → Kargo promotion
+#   2. PR opened/sync: CI → build → push pr-{n} → deploy preview → k6 tests
+#   3. PR closed: cleanup preview namespace
+#
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: hydrohabitat-ci-cd
+  namespace: argo-workflows
+  labels:
+    app.kubernetes.io/name: hydrohabitat
+    app.kubernetes.io/component: ci-cd
+spec:
+  entrypoint: main-router
+  serviceAccountName: argo-workflow
+
+  arguments:
+    parameters:
+      # Git parameters
+      - name: repo-ssh-url
+        default: "ssh://git@codeberg.org/tomasz-wostal-eu/hydrohabitat.git"
+      - name: branch
+        default: "main"
+      - name: ref
+        default: "refs/heads/main"
+      - name: commit-sha
+        default: ""
+      # Event parameters
+      - name: event-type
+        default: "push"
+      - name: pr-number
+        default: ""
+      - name: pr-action
+        default: ""
+      # Docker parameters
+      - name: image-name
+        default: "ghcr.io/tomasz-wostal-eu/hydrohabitat"
+      # Tailscale
+      - name: tailscale-domain
+        default: "tailc90e09.ts.net"
+
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        storageClassName: nfs-rwx
+        accessModes: ["ReadWriteMany"]
+        resources:
+          requests:
+            storage: 2Gi
+
+  templates:
+    # ==================== MAIN ROUTER ====================
+    - name: main-router
+      steps:
+        - - name: route
+            template: route-by-event
+
+    - name: route-by-event
+      dag:
+        tasks:
+          # PR closed → cleanup
+          - name: cleanup
+            template: cleanup-pipeline
+            when: "'{{workflow.parameters.event-type}}' == 'pull_request' && '{{workflow.parameters.pr-action}}' == 'closed'"
+
+          # PR opened/sync → full PR pipeline with preview
+          - name: pr-pipeline
+            template: pr-preview-pipeline
+            when: "'{{workflow.parameters.event-type}}' == 'pull_request' && '{{workflow.parameters.pr-action}}' != 'closed'"
+
+          # Push to main → production pipeline
+          - name: push-pipeline
+            template: push-main-pipeline
+            when: "'{{workflow.parameters.event-type}}' == 'push'"
+
+    # ==================== PR PREVIEW PIPELINE ====================
+    - name: pr-preview-pipeline
+      dag:
+        tasks:
+          - name: debug
+            template: debug-event
+
+          - name: clone
+            template: git-clone
+            dependencies: [debug]
+
+          - name: install
+            template: poetry-install
+            dependencies: [clone]
+
+          - name: black
+            template: black-check
+            dependencies: [install]
+
+          - name: ruff
+            template: ruff-check
+            dependencies: [install]
+
+          - name: test
+            template: pytest
+            dependencies: [black, ruff]
+
+          - name: build
+            template: buildah-build-pr
+            dependencies: [test]
+
+          - name: push
+            template: buildah-push-pr
+            dependencies: [build]
+
+          - name: create-namespace
+            template: create-pr-namespace
+            dependencies: [push]
+
+          - name: create-secrets
+            template: create-pr-secrets
+            dependencies: [create-namespace]
+
+          - name: deploy
+            template: deploy-helm-pr
+            dependencies: [create-secrets]
+
+          - name: create-ingress
+            template: create-tailscale-ingress
+            dependencies: [deploy]
+
+          - name: wait-ready
+            template: wait-for-deployment
+            dependencies: [create-ingress]
+
+          - name: k6-tests
+            template: run-k6-smoke-tests
+            dependencies: [wait-ready]
+
+          - name: notify
+            template: notify
+            dependencies: [k6-tests]
+            arguments:
+              parameters:
+                - name: message
+                  value: "PR #{{workflow.parameters.pr-number}} preview ready at https://hydrohabitat-pr{{workflow.parameters.pr-number}}.{{workflow.parameters.tailscale-domain}}"
+
+    # ==================== PUSH TO MAIN PIPELINE ====================
+    - name: push-main-pipeline
+      dag:
+        tasks:
+          - name: debug
+            template: debug-event
+
+          - name: clone
+            template: git-clone
+            dependencies: [debug]
+
+          - name: install
+            template: poetry-install
+            dependencies: [clone]
+
+          - name: black
+            template: black-check
+            dependencies: [install]
+
+          - name: ruff
+            template: ruff-check
+            dependencies: [install]
+
+          - name: test
+            template: pytest
+            dependencies: [black, ruff]
+
+          - name: build
+            template: buildah-build
+            dependencies: [test]
+
+          - name: push
+            template: buildah-push
+            dependencies: [build]
+            when: "'{{workflow.parameters.ref}}' == 'refs/heads/main' || '{{workflow.parameters.ref}}' == 'refs/heads/master'"
+
+          - name: notify
+            template: notify
+            dependencies: [push]
+            arguments:
+              parameters:
+                - name: message
+                  value: "Push to main - image pushed to GHCR. Kargo will promote automatically."
+
+    # ==================== CLEANUP PIPELINE ====================
+    - name: cleanup-pipeline
+      dag:
+        tasks:
+          - name: delete-namespace
+            template: delete-pr-namespace
+
+          - name: notify
+            template: notify
+            dependencies: [delete-namespace]
+            arguments:
+              parameters:
+                - name: message
+                  value: "PR #{{workflow.parameters.pr-number}} preview environment deleted"
+
+    # ==================== DEBUG ====================
+    - name: debug-event
+      container:
+        image: alpine:3.19
+        command: [sh, -c]
+        args:
+          - |
+            echo "============================================"
+            echo "       HYDROHABITAT CI/CD PIPELINE          "
+            echo "============================================"
+            echo ""
+            echo "Event:    {{workflow.parameters.event-type}}"
+            echo "Action:   {{workflow.parameters.pr-action}}"
+            echo "Ref:      {{workflow.parameters.ref}}"
+            echo "Branch:   {{workflow.parameters.branch}}"
+            echo "PR #:     {{workflow.parameters.pr-number}}"
+            echo "Image:    {{workflow.parameters.image-name}}"
+            echo "============================================"
+
+    # ==================== GIT CLONE ====================
+    - name: git-clone
+      volumes:
+        - name: ssh-key
+          secret:
+            secretName: hydrohabitat-git-ssh
+            defaultMode: 0400
+      container:
+        image: alpine/git:2.43.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            mkdir -p ~/.ssh
+            cp /ssh/id_rsa ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -t rsa,ed25519 codeberg.org >> ~/.ssh/known_hosts 2>/dev/null
+
+            cd /workspace
+            git config --global --add safe.directory /workspace/repo
+
+            COMMIT_SHA="{{workflow.parameters.commit-sha}}"
+            BRANCH="{{workflow.parameters.branch}}"
+
+            if [ -n "$COMMIT_SHA" ] && [ "$COMMIT_SHA" != "" ]; then
+              git clone {{workflow.parameters.repo-ssh-url}} repo
+              cd repo
+              git checkout $COMMIT_SHA
+            else
+              git clone --depth 1 --branch $BRANCH {{workflow.parameters.repo-ssh-url}} repo
+              cd repo
+            fi
+
+            git rev-parse HEAD > /workspace/commit-sha
+            git rev-parse --short HEAD > /workspace/short-sha
+
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)
+            if [ -z "$VERSION" ]; then
+              VERSION="0.1.0-$(cat /workspace/short-sha)"
+            fi
+            echo "$VERSION" > /workspace/version
+
+            echo "Commit:  $(cat /workspace/commit-sha)"
+            echo "Version: $(cat /workspace/version)"
+        volumeMounts:
+          - name: ssh-key
+            mountPath: /ssh
+            readOnly: true
+          - name: workspace
+            mountPath: /workspace
+
+    # ==================== POETRY INSTALL ====================
+    - name: poetry-install
+      container:
+        image: python:3.11-slim
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            cd /workspace/repo
+            pip install --quiet poetry
+            python -m venv /workspace/venv
+            . /workspace/venv/bin/activate
+            poetry install --no-interaction
+            pip list 2>/dev/null | head -20 || true
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+
+    # ==================== BLACK CHECK ====================
+    - name: black-check
+      container:
+        image: python:3.11-slim
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            cd /workspace/repo
+            . /workspace/venv/bin/activate
+            black --check --diff src/ tests/
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+
+    # ==================== RUFF CHECK ====================
+    - name: ruff-check
+      container:
+        image: python:3.11-slim
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            cd /workspace/repo
+            . /workspace/venv/bin/activate
+            ruff check src/ tests/
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+
+    # ==================== PYTEST ====================
+    - name: pytest
+      sidecars:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: hydrohabitat
+            - name: POSTGRES_PASSWORD
+              value: test_password
+            - name: POSTGRES_DB
+              value: hydrohabitat_test
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+      container:
+        image: python:3.11-slim
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            cd /workspace/repo
+            . /workspace/venv/bin/activate
+
+            apt-get update && apt-get install -y --no-install-recommends postgresql-client > /dev/null
+
+            until pg_isready -h localhost -p 5432 -U hydrohabitat; do sleep 2; done
+
+            pytest src/hydrohabitat/tests/ --cov=src/hydrohabitat --cov-report=term-missing -v
+        env:
+          - name: DATABASE_URL
+            value: "postgresql://hydrohabitat:test_password@localhost:5432/hydrohabitat_test"
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+
+    # ==================== BUILDAH BUILD (MAIN) ====================
+    - name: buildah-build
+      volumes:
+        - name: varlibcontainers
+          emptyDir: {}
+      securityContext:
+        runAsUser: 0
+      container:
+        image: quay.io/buildah/stable:v1.35
+        command: [/bin/sh, -c]
+        args:
+          - |
+            set -e
+            cd /workspace/repo
+
+            VERSION=$(cat /workspace/version 2>/dev/null || echo "")
+            SHORT_SHA=$(cat /workspace/short-sha 2>/dev/null || echo "unknown")
+            IMAGE="{{workflow.parameters.image-name}}"
+
+            if [ -z "$VERSION" ]; then VERSION="0.1.0-${SHORT_SHA}"; fi
+
+            echo "Building $IMAGE:$VERSION"
+
+            mkdir -p /etc/containers /run/containers/storage
+            cat > /etc/containers/storage.conf << 'EOF'
+            [storage]
+            driver = "vfs"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            EOF
+
+            buildah --storage-driver vfs build --format docker \
+              -t "$IMAGE:latest" \
+              -t "$IMAGE:$VERSION" \
+              -t "$IMAGE:sha-$SHORT_SHA" \
+              .
+
+            echo "$VERSION" > /workspace/built-version
+            echo "$SHORT_SHA" > /workspace/built-sha
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+          - name: varlibcontainers
+            mountPath: /var/lib/containers
+
+    # ==================== BUILDAH BUILD (PR) ====================
+    - name: buildah-build-pr
+      volumes:
+        - name: varlibcontainers
+          emptyDir: {}
+      securityContext:
+        runAsUser: 0
+      container:
+        image: quay.io/buildah/stable:v1.35
+        command: [/bin/sh, -c]
+        args:
+          - |
+            set -e
+            cd /workspace/repo
+
+            SHORT_SHA=$(cat /workspace/short-sha 2>/dev/null || echo "unknown")
+            IMAGE="{{workflow.parameters.image-name}}"
+            PR_TAG="pr-{{workflow.parameters.pr-number}}"
+
+            echo "Building $IMAGE:$PR_TAG"
+
+            mkdir -p /etc/containers /run/containers/storage
+            cat > /etc/containers/storage.conf << 'EOF'
+            [storage]
+            driver = "vfs"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            EOF
+
+            buildah --storage-driver vfs build --format docker \
+              -t "$IMAGE:$PR_TAG" \
+              -t "$IMAGE:sha-$SHORT_SHA" \
+              .
+
+            echo "$PR_TAG" > /workspace/built-version
+            echo "$SHORT_SHA" > /workspace/built-sha
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+          - name: varlibcontainers
+            mountPath: /var/lib/containers
+
+    # ==================== BUILDAH PUSH (MAIN) ====================
+    - name: buildah-push
+      volumes:
+        - name: docker-config
+          secret:
+            secretName: hydrohabitat-ghcr-credentials
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+        - name: varlibcontainers
+          emptyDir: {}
+      securityContext:
+        runAsUser: 0
+      container:
+        image: quay.io/buildah/stable:v1.35
+        command: [/bin/sh, -c]
+        args:
+          - |
+            set -e
+            cd /workspace/repo
+
+            VERSION=$(cat /workspace/built-version)
+            SHORT_SHA=$(cat /workspace/built-sha)
+            IMAGE="{{workflow.parameters.image-name}}"
+
+            mkdir -p /etc/containers /run/containers/storage
+            cat > /etc/containers/storage.conf << 'EOF'
+            [storage]
+            driver = "vfs"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            EOF
+
+            export REGISTRY_AUTH_FILE=/docker-config/config.json
+
+            buildah --storage-driver vfs build --format docker \
+              -t "$IMAGE:latest" \
+              -t "$IMAGE:$VERSION" \
+              -t "$IMAGE:sha-$SHORT_SHA" \
+              .
+
+            buildah --storage-driver vfs push "$IMAGE:latest"
+            buildah --storage-driver vfs push "$IMAGE:$VERSION"
+            buildah --storage-driver vfs push "$IMAGE:sha-$SHORT_SHA"
+
+            echo "Pushed $IMAGE:$VERSION"
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+          - name: docker-config
+            mountPath: /docker-config
+            readOnly: true
+          - name: varlibcontainers
+            mountPath: /var/lib/containers
+
+    # ==================== BUILDAH PUSH (PR) ====================
+    - name: buildah-push-pr
+      volumes:
+        - name: docker-config
+          secret:
+            secretName: hydrohabitat-ghcr-credentials
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+        - name: varlibcontainers
+          emptyDir: {}
+      securityContext:
+        runAsUser: 0
+      container:
+        image: quay.io/buildah/stable:v1.35
+        command: [/bin/sh, -c]
+        args:
+          - |
+            set -e
+            cd /workspace/repo
+
+            SHORT_SHA=$(cat /workspace/built-sha)
+            IMAGE="{{workflow.parameters.image-name}}"
+            PR_TAG="pr-{{workflow.parameters.pr-number}}"
+
+            mkdir -p /etc/containers /run/containers/storage
+            cat > /etc/containers/storage.conf << 'EOF'
+            [storage]
+            driver = "vfs"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            EOF
+
+            export REGISTRY_AUTH_FILE=/docker-config/config.json
+
+            buildah --storage-driver vfs build --format docker \
+              -t "$IMAGE:$PR_TAG" \
+              -t "$IMAGE:sha-$SHORT_SHA" \
+              .
+
+            buildah --storage-driver vfs push "$IMAGE:$PR_TAG"
+            buildah --storage-driver vfs push "$IMAGE:sha-$SHORT_SHA"
+
+            echo "Pushed $IMAGE:$PR_TAG"
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+          - name: docker-config
+            mountPath: /docker-config
+            readOnly: true
+          - name: varlibcontainers
+            mountPath: /var/lib/containers
+
+    # ==================== CREATE PR NAMESPACE ====================
+    - name: create-pr-namespace
+      container:
+        image: alpine/k8s:1.29.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            NS="hydrohabitat-pr{{workflow.parameters.pr-number}}"
+
+            echo "Creating namespace $NS"
+
+            cat <<EOF | kubectl apply -f -
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: $NS
+              labels:
+                app.kubernetes.io/name: hydrohabitat
+                app.kubernetes.io/instance: pr-{{workflow.parameters.pr-number}}
+                hydrohabitat.io/pr-number: "{{workflow.parameters.pr-number}}"
+                hydrohabitat.io/type: pr-preview
+            EOF
+
+            echo "Namespace $NS created"
+
+    # ==================== CREATE PR SECRETS ====================
+    - name: create-pr-secrets
+      volumes:
+        - name: docker-config
+          secret:
+            secretName: hydrohabitat-ghcr-credentials
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+      container:
+        image: alpine/k8s:1.29.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            NS="hydrohabitat-pr{{workflow.parameters.pr-number}}"
+
+            echo "Creating GHCR pull secret in $NS"
+
+            # Create image pull secret
+            kubectl create secret docker-registry ghcr-credentials \
+              --namespace=$NS \
+              --docker-server=ghcr.io \
+              --docker-username=_ \
+              --docker-password=_ \
+              --dry-run=client -o yaml | \
+            kubectl apply -f - --dry-run=client -o yaml > /tmp/secret.yaml
+
+            # Copy actual secret data
+            DOCKER_CONFIG=$(cat /docker-config/config.json | base64 -w0)
+            cat <<EOF | kubectl apply -f -
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: ghcr-credentials
+              namespace: $NS
+            type: kubernetes.io/dockerconfigjson
+            data:
+              .dockerconfigjson: $DOCKER_CONFIG
+            EOF
+
+            echo "Secret created"
+        volumeMounts:
+          - name: docker-config
+            mountPath: /docker-config
+            readOnly: true
+
+    # ==================== DEPLOY HELM PR ====================
+    - name: deploy-helm-pr
+      container:
+        image: alpine/helm:3.14.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            NS="hydrohabitat-pr{{workflow.parameters.pr-number}}"
+            IMAGE="{{workflow.parameters.image-name}}"
+            TAG="pr-{{workflow.parameters.pr-number}}"
+
+            cd /workspace/repo
+
+            echo "Deploying hydrohabitat to $NS with image $IMAGE:$TAG"
+
+            helm upgrade --install hydrohabitat ./helm/hydrohabitat \
+              --namespace=$NS \
+              --set image.repository=$IMAGE \
+              --set image.tag=$TAG \
+              --set imagePullSecrets[0].name=ghcr-credentials \
+              --set replicaCount=1 \
+              --set resources.requests.cpu=100m \
+              --set resources.requests.memory=128Mi \
+              --set resources.limits.cpu=500m \
+              --set resources.limits.memory=512Mi \
+              --set database.createCluster=true \
+              --set cnpg.instances=1 \
+              --set cnpg.storage.size=1Gi \
+              --set cnpg.storage.storageClass=local-path \
+              --set app.environment=pr-preview \
+              --wait \
+              --timeout=10m
+
+            echo "Helm release deployed"
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+
+    # ==================== CREATE TAILSCALE INGRESS ====================
+    - name: create-tailscale-ingress
+      container:
+        image: alpine/k8s:1.29.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            NS="hydrohabitat-pr{{workflow.parameters.pr-number}}"
+            HOSTNAME="hydrohabitat-pr{{workflow.parameters.pr-number}}"
+            DOMAIN="{{workflow.parameters.tailscale-domain}}"
+
+            echo "Creating Tailscale ingress for $HOSTNAME.$DOMAIN"
+
+            cat <<EOF | kubectl apply -f -
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+              name: hydrohabitat-tailscale
+              namespace: $NS
+              labels:
+                app.kubernetes.io/name: hydrohabitat
+                app.kubernetes.io/instance: pr-{{workflow.parameters.pr-number}}
+              annotations:
+                tailscale.com/tags: "tag:k8s"
+            spec:
+              ingressClassName: tailscale
+              rules:
+                - host: $HOSTNAME.$DOMAIN
+                  http:
+                    paths:
+                      - path: /
+                        pathType: Prefix
+                        backend:
+                          service:
+                            name: hydrohabitat
+                            port:
+                              number: 8000
+              tls:
+                - hosts:
+                    - $HOSTNAME.$DOMAIN
+            EOF
+
+            echo "Tailscale ingress created: https://$HOSTNAME.$DOMAIN"
+
+    # ==================== WAIT FOR DEPLOYMENT ====================
+    - name: wait-for-deployment
+      container:
+        image: alpine/k8s:1.29.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            NS="hydrohabitat-pr{{workflow.parameters.pr-number}}"
+
+            echo "Waiting for deployment to be ready in $NS"
+
+            kubectl rollout status deployment/hydrohabitat \
+              --namespace=$NS \
+              --timeout=300s
+
+            echo "Waiting for pods to be ready..."
+            kubectl wait --for=condition=ready pod \
+              -l app.kubernetes.io/name=hydrohabitat \
+              --namespace=$NS \
+              --timeout=120s
+
+            echo "Deployment ready"
+
+            # Get pod status
+            kubectl get pods -n $NS
+
+    # ==================== K6 SMOKE TESTS ====================
+    - name: run-k6-smoke-tests
+      container:
+        image: grafana/k6:0.49.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            NS="hydrohabitat-pr{{workflow.parameters.pr-number}}"
+            BASE_URL="http://hydrohabitat.$NS.svc.cluster.local:8000"
+
+            echo "Running K6 smoke tests against $BASE_URL"
+
+            # Create smoke test inline
+            cat > /tmp/smoke-test.js << 'EOFK6'
+            import http from 'k6/http';
+            import { check, sleep } from 'k6';
+
+            export const options = {
+              vus: 1,
+              duration: '30s',
+              thresholds: {
+                http_req_duration: ['p(99)<2000'],
+                http_req_failed: ['rate<0.1'],
+                checks: ['rate>0.9'],
+              },
+            };
+
+            const BASE_URL = __ENV.BASE_URL || 'http://localhost:8000';
+
+            export default function () {
+              // Test docs endpoint
+              let res = http.get(`${BASE_URL}/docs`);
+              check(res, {
+                'docs available': (r) => r.status === 200,
+              });
+
+              sleep(1);
+
+              // Test CRUD flow
+              const rackPayload = JSON.stringify({
+                name: 'K6 Test Rack',
+                location: 'Test',
+              });
+
+              res = http.post(`${BASE_URL}/racks/`, rackPayload, {
+                headers: { 'Content-Type': 'application/json' },
+              });
+
+              check(res, { 'rack created': (r) => r.status === 200 });
+
+              if (res.status === 200) {
+                const rackId = JSON.parse(res.body).id;
+
+                res = http.get(`${BASE_URL}/racks/${rackId}`);
+                check(res, { 'rack retrieved': (r) => r.status === 200 });
+
+                res = http.del(`${BASE_URL}/racks/${rackId}`);
+                check(res, { 'rack deleted': (r) => r.status === 200 });
+              }
+
+              sleep(1);
+            }
+            EOFK6
+
+            k6 run --env BASE_URL=$BASE_URL /tmp/smoke-test.js
+
+            echo "K6 smoke tests completed"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+
+    # ==================== DELETE PR NAMESPACE ====================
+    - name: delete-pr-namespace
+      container:
+        image: alpine/k8s:1.29.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            NS="hydrohabitat-pr{{workflow.parameters.pr-number}}"
+
+            echo "Deleting namespace $NS"
+
+            if kubectl get namespace $NS > /dev/null 2>&1; then
+              kubectl delete namespace $NS --wait=true --timeout=120s
+              echo "Namespace $NS deleted"
+            else
+              echo "Namespace $NS does not exist, nothing to delete"
+            fi
+
+    # ==================== NOTIFY ====================
+    - name: notify
+      inputs:
+        parameters:
+          - name: message
+      container:
+        image: alpine:3.19
+        command: [sh, -c]
+        args:
+          - |
+            echo "============================================"
+            echo "{{inputs.parameters.message}}"
+            echo "============================================"
+        volumeMounts:
+          - name: workspace
+            mountPath: /workspace

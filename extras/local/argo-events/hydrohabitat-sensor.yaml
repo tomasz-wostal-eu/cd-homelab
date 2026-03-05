@@ -1,0 +1,192 @@
+---
+# Sensor for Hydrohabitat PUSH events
+#
+# Push to main:
+#   → Full CI/CD: tests → build → push to GHCR
+#   → Kargo will detect new image and promote
+#
+# Push to other branches:
+#   → CI only: tests → build (no push)
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: hydrohabitat-push
+  namespace: argo-events
+  labels:
+    app.kubernetes.io/name: hydrohabitat
+    app.kubernetes.io/component: sensor
+spec:
+  eventBusName: default
+  template:
+    serviceAccountName: argo-events-sa
+  dependencies:
+    - name: push-event
+      eventSourceName: hydrohabitat
+      eventName: hydrohabitat-push
+      transform:
+        script: |-
+          -- Transform ref to branch name
+          local ref = event.body.ref or ""
+          event.body.branch = ref:gsub("refs/heads/", "")
+          return event
+
+  triggers:
+    - template:
+        name: hydrohabitat-ci-cd
+        conditions: "push-event"
+        conditionsReset:
+          - byTime:
+              cron: "* * * * *"
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: hydrohabitat-ci-
+                namespace: argo-workflows
+                labels:
+                  workflows.argoproj.io/workflow-template: hydrohabitat-ci-cd
+                  app.kubernetes.io/name: hydrohabitat
+                  app.kubernetes.io/part-of: hydrohabitat
+                  trigger: push
+              spec:
+                serviceAccountName: argo-workflow
+                workflowTemplateRef:
+                  name: hydrohabitat-ci-cd
+                arguments:
+                  parameters:
+                    - name: repo-ssh-url
+                      value: "ssh://git@codeberg.org/tomasz-wostal-eu/hydrohabitat.git"
+                    - name: branch
+                      value: ""
+                    - name: ref
+                      value: ""
+                    - name: commit-sha
+                      value: ""
+                    - name: event-type
+                      value: "push"
+                    - name: pr-number
+                      value: ""
+                    - name: pr-action
+                      value: ""
+                    - name: image-name
+                      value: "ghcr.io/tomasz-wostal-eu/hydrohabitat"
+          parameters:
+            - src:
+                dependencyName: push-event
+                dataKey: body.branch
+              dest: spec.arguments.parameters.1.value
+            - src:
+                dependencyName: push-event
+                dataKey: body.ref
+              dest: spec.arguments.parameters.2.value
+            - src:
+                dependencyName: push-event
+                dataKey: body.after
+              dest: spec.arguments.parameters.3.value
+      retryStrategy:
+        steps: 3
+---
+# Sensor for Hydrohabitat PR events
+#
+# PR opened/synchronized:
+#   → CI only: tests → build (no push)
+#
+# PR closed (not merged):
+#   → No action
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: hydrohabitat-pr
+  namespace: argo-events
+  labels:
+    app.kubernetes.io/name: hydrohabitat
+    app.kubernetes.io/component: sensor
+spec:
+  eventBusName: default
+  template:
+    serviceAccountName: argo-events-sa
+  dependencies:
+    - name: pr-opened-sync
+      eventSourceName: hydrohabitat
+      eventName: hydrohabitat-pr
+      filters:
+        data:
+          - path: body.action
+            type: string
+            value:
+              - "opened"
+              - "synchronize"
+              - "reopened"
+
+  triggers:
+    - template:
+        name: hydrohabitat-pr-ci
+        conditions: "pr-opened-sync"
+        conditionsReset:
+          - byTime:
+              cron: "* * * * *"
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: hydrohabitat-pr-
+                namespace: argo-workflows
+                labels:
+                  workflows.argoproj.io/workflow-template: hydrohabitat-ci-cd
+                  app.kubernetes.io/name: hydrohabitat
+                  app.kubernetes.io/part-of: hydrohabitat
+                  trigger: pull-request
+              spec:
+                serviceAccountName: argo-workflow
+                workflowTemplateRef:
+                  name: hydrohabitat-ci-cd
+                arguments:
+                  parameters:
+                    - name: repo-ssh-url
+                      value: "ssh://git@codeberg.org/tomasz-wostal-eu/hydrohabitat.git"
+                    - name: branch
+                      value: ""
+                    - name: ref
+                      value: ""
+                    - name: commit-sha
+                      value: ""
+                    - name: event-type
+                      value: "pull_request"
+                    - name: pr-number
+                      value: ""
+                    - name: pr-action
+                      value: ""
+                    - name: image-name
+                      value: "ghcr.io/tomasz-wostal-eu/hydrohabitat"
+          parameters:
+            - src:
+                dependencyName: pr-opened-sync
+                dataKey: body.pull_request.head.ref
+              dest: spec.arguments.parameters.1.value
+            - src:
+                dependencyName: pr-opened-sync
+                dataKey: body.pull_request.head.ref
+              dest: spec.arguments.parameters.2.value
+            - src:
+                dependencyName: pr-opened-sync
+                dataKey: body.pull_request.head.sha
+              dest: spec.arguments.parameters.3.value
+            - src:
+                dependencyName: pr-opened-sync
+                dataKey: body.pull_request.number
+                dataTemplate: "{{ .Input }}"
+              dest: spec.arguments.parameters.5.value
+            - src:
+                dependencyName: pr-opened-sync
+                dataKey: body.action
+              dest: spec.arguments.parameters.6.value
+      retryStrategy:
+        steps: 3

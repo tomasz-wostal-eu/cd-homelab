@@ -1,0 +1,64 @@
+---
+# EventSource for Hydrohabitat Codeberg webhooks
+# Repository: ssh://git@codeberg.org/tomasz-wostal-eu/hydrohabitat.git
+#
+# Webhook URLs (configure in Codeberg repo settings):
+#   - Push: https://argo-events.devopslaboratory.org/hydrohabitat/push
+#   - PR:   https://argo-events.devopslaboratory.org/hydrohabitat/pr
+#
+# Note: Uses the existing codeberg EventSource, just adds hydrohabitat endpoints
+# If codeberg EventSource doesn't exist, create this as standalone
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: hydrohabitat
+  namespace: argo-events
+  labels:
+    app.kubernetes.io/name: hydrohabitat
+    app.kubernetes.io/component: eventsource
+spec:
+  eventBusName: default
+  webhook:
+    # Push events - triggers CI on any branch
+    hydrohabitat-push:
+      port: "12002"
+      endpoint: /hydrohabitat/push
+      method: POST
+      webhookSecret:
+        name: argo-events-webhook-credentials
+        key: codeberg-webhook-secret
+      authSecret:
+        name: argo-events-webhook-credentials
+        key: codeberg-webhook-auth-token
+
+    # Pull Request events - triggers CI with PR context
+    hydrohabitat-pr:
+      port: "12002"
+      endpoint: /hydrohabitat/pr
+      method: POST
+      webhookSecret:
+        name: argo-events-webhook-credentials
+        key: codeberg-webhook-secret
+      authSecret:
+        name: argo-events-webhook-credentials
+        key: codeberg-webhook-auth-token
+---
+# Service for the Hydrohabitat EventSource webhook endpoint
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydrohabitat-eventsource-svc
+  namespace: argo-events
+  labels:
+    eventsource-name: hydrohabitat
+    app.kubernetes.io/name: hydrohabitat
+spec:
+  type: ClusterIP
+  ports:
+    - port: 12002
+      targetPort: 12002
+      protocol: TCP
+      name: webhook
+  selector:
+    eventsource-name: hydrohabitat
+    owner-name: hydrohabitat

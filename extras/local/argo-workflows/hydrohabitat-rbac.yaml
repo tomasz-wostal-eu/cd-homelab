@@ -1,0 +1,84 @@
+---
+# RBAC for Hydrohabitat CI/CD workflows
+# Allows creating PR preview namespaces and deploying applications
+
+# ClusterRole for PR preview management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hydrohabitat-pr-preview-manager
+  labels:
+    app.kubernetes.io/name: hydrohabitat
+    app.kubernetes.io/component: ci-cd
+rules:
+  # Namespace management for PR previews
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+
+  # Secret management (for image pull secrets)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "delete", "get", "list", "watch", "update", "patch"]
+
+  # Core resources for Helm deployments
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - services
+      - serviceaccounts
+      - persistentvolumeclaims
+    verbs: ["create", "delete", "get", "list", "watch", "update", "patch"]
+
+  # Pods for status checking
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+
+  # Deployments and rollouts
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["create", "delete", "get", "list", "watch", "update", "patch"]
+
+  # Ingress for Tailscale
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["create", "delete", "get", "list", "watch", "update", "patch"]
+
+  # CloudNativePG resources (for PR database)
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters", "poolers", "scheduledbackups"]
+    verbs: ["create", "delete", "get", "list", "watch", "update", "patch"]
+
+  # Argo Rollouts (optional)
+  - apiGroups: ["argoproj.io"]
+    resources: ["rollouts", "analysistemplates", "analysisruns"]
+    verbs: ["create", "delete", "get", "list", "watch", "update", "patch"]
+
+  # HPA (if autoscaling enabled)
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["create", "delete", "get", "list", "watch", "update", "patch"]
+
+  # Events for debugging
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding for argo-workflow ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hydrohabitat-pr-preview-manager
+  labels:
+    app.kubernetes.io/name: hydrohabitat
+    app.kubernetes.io/component: ci-cd
+subjects:
+  - kind: ServiceAccount
+    name: argo-workflow
+    namespace: argo-workflows
+roleRef:
+  kind: ClusterRole
+  name: hydrohabitat-pr-preview-manager
+  apiGroup: rbac.authorization.k8s.io
