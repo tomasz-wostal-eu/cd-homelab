@@ -678,7 +678,7 @@ spec:
               --set database.createCluster=true \
               --set cnpg.instances=1 \
               --set cnpg.storage.size=1Gi \
-              --set cnpg.storage.storageClass=local-path \
+              --set cnpg.storage.storageClass=nfs-rwx \
               --set app.environment=pr-preview \
               --wait \
               --timeout=10m
@@ -772,6 +772,7 @@ spec:
             BASE_URL="http://hydrohabitat.$NS.svc.cluster.local:8000"
 
             echo "Running K6 smoke tests against $BASE_URL"
+            echo "Metrics will be sent to VictoriaMetrics"
 
             # Create smoke test inline
             cat > /tmp/smoke-test.js << 'EOFK6'
@@ -825,9 +826,18 @@ spec:
             }
             EOFK6
 
-            k6 run --env BASE_URL=$BASE_URL /tmp/smoke-test.js
+            k6 run --out experimental-prometheus-rw --env BASE_URL=$BASE_URL /tmp/smoke-test.js
 
             echo "K6 smoke tests completed"
+        env:
+          - name: K6_PROMETHEUS_RW_SERVER_URL
+            value: "http://victoria-metrics-victoria-metrics-single-server.monitoring.svc:8428/api/v1/write"
+          - name: K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM
+            value: "true"
+          - name: K6_PROMETHEUS_RW_TREND_STATS
+            value: "p(95),p(99),min,max"
+          - name: K6_PROMETHEUS_RW_STALE_MARKERS
+            value: "true"
         resources:
           requests:
             cpu: 100m
