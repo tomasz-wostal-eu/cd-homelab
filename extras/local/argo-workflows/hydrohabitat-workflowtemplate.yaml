@@ -678,7 +678,7 @@ spec:
               --set database.createCluster=true \
               --set cnpg.instances=1 \
               --set cnpg.storage.size=1Gi \
-              --set cnpg.storage.storageClass=nfs-rwx \
+              --set cnpg.storage.storageClass=local-path \
               --set app.environment=pr-preview \
               --wait \
               --timeout=10m
