@@ -13,10 +13,13 @@ persistence:
   size: 10Gi
 
 # Security context for NFS compatibility (avoid chown permission errors)
+# fsGroup must be at pod level, not container level
+podSecurityContext:
+  fsGroup: 1000
+
 securityContext:
   runAsUser: 1000
   runAsGroup: 1000
-  fsGroup: 1000
 
 resources:
   requests:
