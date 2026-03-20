@@ -1,0 +1,26 @@
+---
+# Tailscale Ingress for Argo Workflows
+# Private access via Tailscale MagicDNS (tailnet only)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argo-workflows-homelab
+  namespace: argo-workflows
+  annotations:
+    tailscale.com/tags: "tag:k8s"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: argo-workflows-homelab.tailc90e09.ts.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argo-workflows-server
+                port:
+                  number: 2746
+  tls:
+    - hosts:
+        - argo-workflows-homelab.tailc90e09.ts.net

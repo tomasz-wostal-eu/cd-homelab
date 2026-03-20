@@ -1,0 +1,23 @@
+---
+# PodMonitor for kgateway control plane metrics
+# kgateway exposes metrics on port 9092 (no dedicated Service for metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kgateway
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  namespaceSelector:
+    matchNames:
+      - kgateway-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kgateway
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
