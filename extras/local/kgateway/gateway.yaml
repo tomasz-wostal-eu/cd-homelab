@@ -9,6 +9,7 @@ metadata:
   namespace: kgateway-system
   annotations:
     argocd.argoproj.io/sync-wave: "3"
+    external-dns.alpha.kubernetes.io/target: d5854df6-8267-4a84-8d51-3431d4c0c15d.cfargotunnel.com
 spec:
   gatewayClassName: kgateway
   listeners:
