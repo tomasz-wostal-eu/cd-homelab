@@ -11,6 +11,11 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
 spec:
   gatewayClassName: envoy-gateway
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: homelab-proxy-config
   listeners:
     - name: http
       port: 80

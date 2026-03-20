@@ -1,0 +1,28 @@
+---
+# EnvoyProxy configuration for homelab Gateway
+# Sets a predictable service name for the data plane (avoids random hash suffix)
+# Referenced by Gateway via spec.infrastructure.parametersRef
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: homelab-proxy-config
+  namespace: envoy-gateway-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        name: homelab-gateway-proxy
+        type: LoadBalancer
+      envoyDeployment:
+        replicas: 1
+        container:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
