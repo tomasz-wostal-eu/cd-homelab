@@ -6,8 +6,9 @@ domainFilters:
   - "devopslaboratory.org"
 
 # Sources to watch for DNS records
-# gateway-httproute: automatically creates DNS records from HTTPRoute hostnames
-# pointing to the envoy-gateway LoadBalancer IP (Cloudflare Full SSL mode)
+# gateway-httproute: reads hostnames from HTTPRoute resources.
+# Each HTTPRoute must have external-dns.alpha.kubernetes.io/target annotation
+# pointing to the Cloudflare Tunnel CNAME (overrides private MetalLB IP).
 sources:
   - service
   - ingress

@@ -1,7 +1,6 @@
 ---
-# HTTPRoute for Argo Workflows - public access via envoy-gateway
-# Replaces: cloudflare-ingress.yaml (Istio Gateway + DNSEndpoint)
-# DNS managed by external-dns watching gateway-httproute source
+# HTTPRoute for Argo Workflows - public access via Cloudflare Tunnel → kgateway
+# DNS managed by external-dns (gateway-httproute source) using Cloudflare Tunnel CNAME as target
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -9,6 +8,7 @@ metadata:
   namespace: argo-workflows
   annotations:
     argocd.argoproj.io/sync-wave: "4"
+    external-dns.alpha.kubernetes.io/target: d5854df6-8267-4a84-8d51-3431d4c0c15d.cfargotunnel.com
 spec:
   parentRefs:
     - name: homelab-gateway
