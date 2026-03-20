@@ -1,0 +1,36 @@
+---
+# HTTPRoute for Grafana - public access via envoy-gateway
+# Replaces: cloudflare-ingress.yaml (Istio Gateway + DNSEndpoint)
+# DNS managed by external-dns watching gateway-httproute source
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  parentRefs:
+    - name: homelab-gateway
+      namespace: envoy-gateway-system
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      sectionName: https
+    - name: homelab-gateway
+      namespace: envoy-gateway-system
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      sectionName: http
+  hostnames:
+    - grafana.devopslaboratory.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: grafana
+          port: 80
+          group: ""
+          kind: Service
+          weight: 1

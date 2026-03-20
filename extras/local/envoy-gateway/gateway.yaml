@@ -1,0 +1,32 @@
+---
+# Main homelab Gateway - replaces Istio homelab-gateway
+# LoadBalancer IP provisioned by MetalLB (172.21.255.x range)
+# TLS terminated by cert-manager wildcard cert (Let's Encrypt via Cloudflare DNS-01)
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: homelab-gateway
+  namespace: envoy-gateway-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  gatewayClassName: envoy-gateway
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: homelab-wildcard-tls
+            namespace: envoy-gateway-system
+      allowedRoutes:
+        namespaces:
+          from: All

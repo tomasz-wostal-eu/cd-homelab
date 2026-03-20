@@ -8,14 +8,16 @@ cloudflare:
   tunnelName: homelab
   # Ingress rules - routed through tunnel
   ingress:
+    # Routes traffic to envoy-gateway (replaced Istio homelab-gateway)
+    # Service name follows envoy-gateway convention: envoy-{namespace}-{gateway-name}
     - hostname: grafana.devopslaboratory.org
-      service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
+      service: http://envoy-envoy-gateway-system-homelab-gateway.envoy-gateway-system.svc.cluster.local:80
     - hostname: auth.devopslaboratory.org
-      service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
+      service: http://envoy-envoy-gateway-system-homelab-gateway.envoy-gateway-system.svc.cluster.local:80
     - hostname: workflows.devopslaboratory.org
-      service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
+      service: http://envoy-envoy-gateway-system-homelab-gateway.envoy-gateway-system.svc.cluster.local:80
     - hostname: argo-events.devopslaboratory.org
-      service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
+      service: http://envoy-envoy-gateway-system-homelab-gateway.envoy-gateway-system.svc.cluster.local:80
     - hostname: cd.devopslaboratory.org
-      service: http://homelab-gateway-istio.istio-system.svc.cluster.local:80
+      service: http://envoy-envoy-gateway-system-homelab-gateway.envoy-gateway-system.svc.cluster.local:80
     # Chart adds catch-all rule automatically

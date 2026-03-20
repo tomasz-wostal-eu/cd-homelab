@@ -1,5 +1,6 @@
 ---
 # Tailscale Ingress for Authentik
+# Exposes Authentik UI on Tailscale network with automatic HTTPS (MagicDNS)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,13 +8,21 @@ metadata:
   namespace: authentik
   annotations:
     argocd.argoproj.io/sync-wave: "3"
+    tailscale.com/tags: "tag:k8s"
 spec:
   ingressClassName: tailscale
-  defaultBackend:
-    service:
-      name: authentik-server
-      port:
-        number: 80
+  rules:
+    - host: authentik-homelab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: authentik-server
+                port:
+                  number: 80
+  # Tailscale provides automatic TLS via MagicDNS
   tls:
     - hosts:
         - authentik-homelab

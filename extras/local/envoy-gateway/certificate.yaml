@@ -1,0 +1,20 @@
+---
+# Wildcard TLS certificate for devopslaboratory.org
+# Issued by homelab-ca-issuer (self-signed CA) - Cloudflare Full SSL mode handles trust to clients
+# Must be in envoy-gateway-system namespace for the Gateway HTTPS listener to reference it
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: homelab-wildcard-tls
+  namespace: envoy-gateway-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  secretName: homelab-wildcard-tls
+  dnsNames:
+    - "*.devopslaboratory.org"
+    - "devopslaboratory.org"
+  issuerRef:
+    name: homelab-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

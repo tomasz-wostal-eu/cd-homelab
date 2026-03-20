@@ -6,12 +6,13 @@ domainFilters:
   - "devopslaboratory.org"
 
 # Sources to watch for DNS records
-# Note: gateway-httproute removed - use DNSEndpoint (crd) for Cloudflare Tunnel
-# HTTPRoute generates records to Gateway IP, but tunnel needs CNAME to tunnel
+# gateway-httproute: automatically creates DNS records from HTTPRoute hostnames
+# pointing to the envoy-gateway LoadBalancer IP (Cloudflare Full SSL mode)
 sources:
   - service
   - ingress
   - crd
+  - gateway-httproute
 
 # Cloudflare provider
 provider:
