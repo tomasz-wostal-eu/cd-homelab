@@ -47,11 +47,6 @@ spec:
         - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
           targetRevision: main
           ref: values
-        - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
-          targetRevision: main
-          path: extras/{{ .region }}/istio-base
-          directory:
-            recurse: true
       destination:
         server: "{{ .cluster }}"
         namespace: "{{ .namespace }}"
