@@ -1,5 +1,0 @@
----
-# Istio Base - common values
-# CRDs and cluster-wide resources
-
-defaultRevision: default

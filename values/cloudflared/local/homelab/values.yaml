@@ -8,16 +8,17 @@ cloudflare:
   tunnelName: homelab
   # Ingress rules - routed through tunnel
   ingress:
-    # Routes traffic to envoy-gateway (replaced Istio homelab-gateway)
-    # Service name follows envoy-gateway convention: envoy-{namespace}-{gateway-name}
+    # Routes traffic to kgateway (replaced Istio + envoy-gateway)
+    # TODO: verify exact service name after kgateway deploys:
+    #   kubectl get svc -n kgateway-system
     - hostname: grafana.devopslaboratory.org
-      service: http://homelab-gateway-proxy.envoy-gateway-system.svc.cluster.local:80
+      service: http://homelab-gateway-kgateway-kgateway-system.kgateway-system.svc.cluster.local:80
     - hostname: auth.devopslaboratory.org
-      service: http://homelab-gateway-proxy.envoy-gateway-system.svc.cluster.local:80
+      service: http://homelab-gateway-kgateway-kgateway-system.kgateway-system.svc.cluster.local:80
     - hostname: workflows.devopslaboratory.org
-      service: http://homelab-gateway-proxy.envoy-gateway-system.svc.cluster.local:80
+      service: http://homelab-gateway-kgateway-kgateway-system.kgateway-system.svc.cluster.local:80
     - hostname: argo-events.devopslaboratory.org
-      service: http://homelab-gateway-proxy.envoy-gateway-system.svc.cluster.local:80
+      service: http://homelab-gateway-kgateway-kgateway-system.kgateway-system.svc.cluster.local:80
     - hostname: cd.devopslaboratory.org
-      service: http://homelab-gateway-proxy.envoy-gateway-system.svc.cluster.local:80
+      service: http://homelab-gateway-kgateway-kgateway-system.kgateway-system.svc.cluster.local:80
     # Chart adds catch-all rule automatically

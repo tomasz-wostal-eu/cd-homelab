@@ -16,12 +16,12 @@ metadata:
 spec:
   parentRefs:
     - name: homelab-gateway
-      namespace: envoy-gateway-system
+      namespace: kgateway-system
       group: gateway.networking.k8s.io
       kind: Gateway
       sectionName: https
     - name: homelab-gateway
-      namespace: envoy-gateway-system
+      namespace: kgateway-system
       group: gateway.networking.k8s.io
       kind: Gateway
       sectionName: http
