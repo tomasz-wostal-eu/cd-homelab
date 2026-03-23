@@ -25,4 +25,4 @@ spec:
   data:
     - secretKey: sshPrivateKey
       remoteRef:
-        key: argocd-cd-homelab-ssh-key
+        key: argocd-hydrohabitat-ssh-key
