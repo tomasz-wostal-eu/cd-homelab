@@ -1,0 +1,18 @@
+---
+# HTTPListenerPolicy to enable WebSocket upgrades on homelab-gateway
+# Required for Authentik (/ws/client/) and ArgoCD (/api/v1/stream) WebSocket connections
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: HTTPListenerPolicy
+metadata:
+  name: websocket-upgrade
+  namespace: kgateway-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab-gateway
+  upgradeConfig:
+    enabledUpgrades:
+      - websocket
