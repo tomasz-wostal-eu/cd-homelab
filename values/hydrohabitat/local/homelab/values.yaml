@@ -47,7 +47,7 @@ rollout:
   scaleDownDelaySeconds: 30
 
   prePromotionAnalysis:
-    enabled: true
+    enabled: false  # TODO: re-enable after fixing {{inputs.parameters}} → {{args}} in chart analysistemplate.yaml
 
   postPromotionAnalysis:
     enabled: false
