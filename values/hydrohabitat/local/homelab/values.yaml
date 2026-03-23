@@ -99,10 +99,9 @@ cnpg:
   backup:
     enabled: true
     retentionPolicy: "7d"
-    s3:
-      endpointURL: https://hel1.your-objectstorage.com
-      bucket: mw-hydrohabitat-db
-      path: /
+    destinationPath: "s3://mw-hydrohabitat-db/"
+    endpointURL: "https://hel1.your-objectstorage.com"
+    s3Credentials:
       accessKeyId:
         name: hydrohabitat-s3-credentials
         key: accessKeyId
