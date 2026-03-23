@@ -85,12 +85,27 @@ cnpg:
   storage:
     size: 5Gi
     storageClass: nfs-rwx
+  # Guaranteed QoS — requests == limits (@data mandate)
   resources:
     limits:
       cpu: 500m
       memory: 512Mi
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 500m
+      memory: 512Mi
+  # WAL archiving to Hetzner Object Storage (@data mandate: every stateful service needs a snapshot mechanism)
+  # Prerequisites: create bucket 'mw-hydrohabitat-db' and ExternalSecret 'hydrohabitat-s3-credentials'
+  # (keys: accessKeyId, secretAccessKey) in namespace 'hydrohabitat' from azure-keyvault-store.
   backup:
-    enabled: false
+    enabled: true
+    retentionPolicy: "7d"
+    s3:
+      endpointURL: https://hel1.your-objectstorage.com
+      bucket: mw-hydrohabitat-db
+      path: /
+      accessKeyId:
+        name: hydrohabitat-s3-credentials
+        key: accessKeyId
+      secretAccessKey:
+        name: hydrohabitat-s3-credentials
+        key: secretAccessKey
