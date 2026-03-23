@@ -1,0 +1,50 @@
+# Common values for HydroHabitat — shared across all environments
+
+# GHCR pull secret (created by extras/local/hydrohabitat/externalsecret.yaml)
+imagePullSecrets:
+  - name: hydrohabitat-ghcr-credentials
+
+image:
+  repository: ghcr.io/tomasz-wostal-eu/hydrohabitat
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+livenessProbe:
+  httpGet:
+    path: /docs
+    port: http
+  initialDelaySeconds: 40
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /docs
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Database defaults — overridden per environment.
+# Homelab: createCluster=true (Helm chart manages CNPG cluster).
+database:
+  createCluster: false
+  existingCluster:
+    enabled: false

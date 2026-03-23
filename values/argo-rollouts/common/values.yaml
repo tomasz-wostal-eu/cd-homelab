@@ -1,0 +1,51 @@
+# Common values for Argo Rollouts across all environments
+
+controller:
+  replicas: 1
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false  # Enable when Prometheus Operator CRDs are present
+
+# Rollouts dashboard (read-only web UI)
+dashboard:
+  enabled: true
+  replicas: 1
+
+  service:
+    type: ClusterIP
+    port: 3100
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Install CRDs managed by the chart
+installCRDs: true
+
+# Notifications (Slack/webhook alerts on rollout events)
+notifications:
+  enabled: false  # Enable when notification templates are configured
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true

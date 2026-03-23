@@ -1,0 +1,8 @@
+# Homelab values for Argo Rollouts
+# Region: local, Environment: homelab
+
+controller:
+  replicas: 1
+
+dashboard:
+  enabled: true

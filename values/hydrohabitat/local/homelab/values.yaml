@@ -1,0 +1,96 @@
+# Homelab environment values for HydroHabitat
+# Region: local, Environment: homelab
+
+replicaCount: 1
+
+image:
+  tag: latest
+
+app:
+  environment: homelab
+  apiHost: "0.0.0.0"
+  apiPort: 8000
+  apiReload: false
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+
+# ── Argo Rollouts — Blue-Green strategy ────────────────────────────────────
+# Replaces the standard Deployment with an Argo Rollout resource.
+# The Rollout controller must be installed (applicationsets/argo-rollouts.yaml).
+#
+# Flow:
+#   1. New image pushed → Rollout creates preview (green) ReplicaSet
+#   2. prePromotionAnalysis runs k6 smoke tests against the preview service
+#   3. Analysis passes → auto-promoted after autoPromotionSeconds
+#   4. Active service switches to new (green) pods; old (blue) scaled down after scaleDownDelaySeconds
+rollout:
+  enabled: true
+  strategy: blueGreen
+
+  revisionHistoryLimit: 3
+
+  # Automatically promote after prePromotionAnalysis succeeds.
+  # Manual promotion (kubectl argo rollouts promote hydrohabitat -n hydrohabitat)
+  # is still possible at any time.
+  autoPromotionEnabled: true
+  autoPromotionSeconds: 60
+
+  scaleDownDelaySeconds: 30
+
+  prePromotionAnalysis:
+    enabled: true
+
+  postPromotionAnalysis:
+    enabled: false
+
+  analysis:
+    initialDelay: 30s
+    interval: 60s
+    count: 1
+    failureLimit: 0
+    k6Image: grafana/k6:0.49.0
+    k6Config:
+      vus: 2
+      duration: "30s"
+      thresholds:
+        p99Duration: 1500
+        errorRate: 0.01
+        checksRate: 0.95
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Let the Helm chart create the CNPG Cluster (requires CNPG operator installed).
+# Credentials are injected via the chart from the hydrohabitat-db-credentials secret.
+database:
+  createCluster: true
+  existingCluster:
+    enabled: false
+
+cnpg:
+  instances: 1
+  storage:
+    size: 5Gi
+    storageClass: nfs-rwx
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  backup:
+    enabled: false
