@@ -84,7 +84,7 @@ cnpg:
   instances: 1
   storage:
     size: 5Gi
-    storageClass: nfs-rwx
+    storageClass: local-path
   # Guaranteed QoS — requests == limits (@data mandate)
   resources:
     limits:
