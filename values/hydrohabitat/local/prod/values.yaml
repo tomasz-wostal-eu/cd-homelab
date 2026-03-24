@@ -1,0 +1,45 @@
+replicaCount: 2
+
+image:
+  tag: latest
+
+app:
+  environment: prod
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+rollout:
+  enabled: true
+  strategy: blueGreen
+  autoPromotionEnabled: false
+  scaleDownDelaySeconds: 60
+  prePromotionAnalysis:
+    enabled: false
+  postPromotionAnalysis:
+    enabled: false
+
+database:
+  createCluster: true
+  existingCluster:
+    enabled: false
+
+cnpg:
+  instances: 2
+  storage:
+    size: 10Gi
+    storageClass: local-path
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+  backup:
+    enabled: false

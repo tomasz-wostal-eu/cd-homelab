@@ -17,6 +17,34 @@ spec:
             env: homelab
             region: local
             type: homelab
+          - name: pr
+            cluster: https://kubernetes.default.svc
+            namespace: hydrohabitat-pr
+            helmRevision: "main"
+            env: pr
+            region: local
+            type: homelab
+          - name: dev
+            cluster: https://kubernetes.default.svc
+            namespace: hydrohabitat-dev
+            helmRevision: "main"
+            env: dev
+            region: local
+            type: homelab
+          - name: qa
+            cluster: https://kubernetes.default.svc
+            namespace: hydrohabitat-qa
+            helmRevision: "main"
+            env: qa
+            region: local
+            type: homelab
+          - name: prod
+            cluster: https://kubernetes.default.svc
+            namespace: hydrohabitat-prod
+            helmRevision: "main"
+            env: prod
+            region: local
+            type: homelab
   template:
     metadata:
       name: hydrohabitat-{{ .name }}
