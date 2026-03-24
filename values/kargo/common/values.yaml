@@ -47,22 +47,14 @@ api:
       cpu: 100m
       memory: 128Mi
 
-  # Admin account configuration (credentials from ExternalSecret)
+  # Use ExternalSecret-managed secret directly (has ADMIN_ACCOUNT_PASSWORD_HASH and ADMIN_ACCOUNT_TOKEN_SIGNING_KEY keys)
+  secret:
+    name: kargo-admin-credentials
+
+  # Admin account configuration
   adminAccount:
     enabled: true
     tokenTTL: 24h
-    # Password hash from secret
-    passwordHash:
-      valueFrom:
-        secretKeyRef:
-          name: kargo-admin-credentials
-          key: ADMIN_ACCOUNT_PASSWORD_HASH
-    # Token signing key from secret
-    tokenSigningKey:
-      valueFrom:
-        secretKeyRef:
-          name: kargo-admin-credentials
-          key: ADMIN_ACCOUNT_TOKEN_SIGNING_KEY
 
   # ArgoCD SSO integration
   argocd:
