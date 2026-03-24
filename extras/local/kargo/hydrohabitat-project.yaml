@@ -8,39 +8,6 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 ---
-# GHCR image credentials scoped to the hydrohabitat project namespace
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: kargo-ghcr-image-creds
-  namespace: hydrohabitat
-  annotations:
-    argocd.argoproj.io/sync-wave: "0"
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: azure-keyvault-store
-    kind: ClusterSecretStore
-  target:
-    name: kargo-ghcr-image-creds
-    creationPolicy: Owner
-    template:
-      engineVersion: v2
-      metadata:
-        labels:
-          kargo.akuity.io/cred-type: image
-      data:
-        repoURL: ghcr.io
-        username: "{{ .username }}"
-        password: "{{ .token }}"
-  data:
-    - secretKey: username
-      remoteRef:
-        key: ghcr-username
-    - secretKey: token
-      remoteRef:
-        key: ghcr-token
----
 # Warehouse: watches ghcr.io/tomasz-wostal-eu/hydrohabitat for new sha-* tags
 # Every push to main by Argo Workflows produces a sha-<short-sha> tag
 apiVersion: kargo.akuity.io/v1alpha1
