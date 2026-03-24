@@ -1,0 +1,78 @@
+---
+# Kargo Project for hydrohabitat
+# Creates the hydrohabitat namespace within Kargo's management scope
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: hydrohabitat
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+---
+# Warehouse: watches ghcr.io/tomasz-wostal-eu/hydrohabitat for new sha-* tags
+# Every push to main by Argo Workflows produces a sha-<short-sha> tag
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: hydrohabitat
+  namespace: hydrohabitat
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  subscriptions:
+    - image:
+        repoURL: ghcr.io/tomasz-wostal-eu/hydrohabitat
+        imageSelectionStrategy: Lexical
+        allowTags: ^sha-
+---
+# Stage: homelab — promotes a new image by updating image.tag in values and triggering ArgoCD
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: homelab
+  namespace: hydrohabitat
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: hydrohabitat
+      sources:
+        direct: true
+  promotionTemplate:
+    spec:
+      steps:
+        - uses: git-clone
+          config:
+            repoURL: https://github.com/tomasz-wostal-eu/cd-homelab.git
+            checkout:
+              - branch: main
+                path: ./repo
+
+        - uses: yaml-update
+          as: update-image-tag
+          config:
+            path: repo/values/hydrohabitat/local/homelab/values.yaml
+            updates:
+              - key: image.tag
+                value: ${{ imageFrom("ghcr.io/tomasz-wostal-eu/hydrohabitat").Tag }}
+
+        - uses: git-commit
+          as: commit
+          config:
+            path: ./repo
+            messageTemplate: |
+              chore(hydrohabitat): promote to ${{ imageFrom("ghcr.io/tomasz-wostal-eu/hydrohabitat").Tag }}
+
+        - uses: git-push
+          config:
+            path: ./repo
+
+        - uses: argocd-update
+          config:
+            apps:
+              - name: hydrohabitat-homelab
+                namespace: argocd
+                sources:
+                  - repoURL: git@github.com:tomasz-wostal-eu/cd-homelab.git
+                    desiredCommitFromStep: commit
